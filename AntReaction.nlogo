@@ -7,7 +7,6 @@ patches-own [
   food                 ;; amount of food on this patch (0, 1, or 2)
   nest?                ;; true on nest patches, false elsewhere
   nest-scent           ;; number that is higher closer to the nest
-  ;;
   food-source-number   ;; number (1, 2, or 3) to identify the food sources
 ]
 
@@ -60,6 +59,7 @@ end
 to setup-danger ;;patch procedure
 ;;checks on the edge of the map whether something is present: if not, place an enemy 'once'
 ;;for now, let's do it static and at init
+
 end
 
 to recolor-patch  ;; patch procedure
@@ -102,7 +102,7 @@ to return-to-nest  ;; turtle procedure
   [ ;; drop food and head out again\
     ;T2!
     ;this is where the code will go for THOMAS's food addition!!
-    set color red
+    set color yellow
     rt 180 ]
   [ set chemical chemical + 60  ;; drop some chemical
     uphill-nest-scent ]         ;; head toward the greatest value of nest-scent
