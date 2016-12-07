@@ -4,7 +4,10 @@ patches-own [
   nest?                ;; true on nest patches, false elsewhere
   nest-scent           ;; number that is higher closer to the nest
   food-source-number   ;; number (1, 2, or 3) to identify the food sources
+  nestfood             ;; food in the nest
 ]
+turtles-own [energy]    ;; energy for each ant
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Setup procedures ;;;
@@ -15,7 +18,8 @@ to setup
   set-default-shape turtles "bug"
   create-turtles population
   [ set size 2         ;; easier to see
-    set color red  ]   ;; red = not carrying food
+    set color red      ;; red = not carrying food
+    set  energy startenergy ]  ;; power level of the ants
   setup-patches
   reset-ticks
 end
@@ -24,14 +28,18 @@ to setup-patches
   ask patches
   [ setup-nest
     setup-food
-    recolor-patch ]
+    recolor-patch
+    set nestfood 0 ]
 end
+
+
 
 to setup-nest  ;; patch procedure
   ;; set nest? variable to true inside the nest, false elsewhere
   set nest? (distancexy 0 0) < 5
   ;; spread a nest-scent over the whole world -- stronger near the nest
   set nest-scent 200 - distancexy 0 0
+
 end
 
 to setup-food  ;; patch procedure
@@ -58,7 +66,6 @@ to recolor-patch  ;; patch procedure
       if food-source-number = 2 [ set pcolor sky  ]
       if food-source-number = 3 [ set pcolor blue ] ]
     ;; scale color to show chemical concentration
-    ;self-note: shows the chemical trail from food-source to nest
     [ set pcolor scale-color green chemical 0.1 5 ] ]
 end
 
@@ -66,31 +73,40 @@ end
 ;;; Go procedures ;;;
 ;;;;;;;;;;;;;;;;;;;;;
 
+
 to go  ;; forever button
+
   ask turtles
-  ;;this works by saying that if the id of the turtle (the number of the turtle) is below the passed time/ticks, you stop
   [ if who >= ticks [ stop ] ;; delay initial departure
     ifelse color = red
-    [ look-for-food  ]       ;; not carrying food? look for it
+    [ enough-food  ]       ;; not carrying food? look for it
     [ return-to-nest ]       ;; carrying food? take it back to nest
     wiggle
+    death
     fd 1 ]
   diffuse chemical (diffusion-rate / 100)
-  ;;THIS Is related to how long the chemicals last on each patch
   ask patches
   [ set chemical chemical * (100 - evaporation-rate) / 100  ;; slowly evaporate chemical
     recolor-patch ]
   tick
 end
 
+to enough-food
+  ifelse nest?
+  [ ifelse energy < 200
+    [ if nestfood > 0
+      [ set nestfood nestfood - 1
+        set energy energy + 250]]
+      [ look-for-food ]]
+  [ look-for-food ]
+end
+
 to return-to-nest  ;; turtle procedure
   ifelse nest?
-  [ ;; drop food and head out again\
-
-
-    ;this is where the code will go for THOMAS's food addition!!
+  [ ;; drop food and head out again
     set color red
-    rt 180 ]
+    rt 180
+    set nestfood nestfood + 1 ]
   [ set chemical chemical + 60  ;; drop some chemical
     uphill-nest-scent ]         ;; head toward the greatest value of nest-scent
 end
@@ -129,9 +145,10 @@ to uphill-nest-scent  ;; turtle procedure
 end
 
 to wiggle  ;; turtle procedure
-  rt random 40
-  lt random 40
+  rt random 20
+  lt random 20
   if not can-move? 1 [ rt 180 ]
+  set energy energy - 1
 end
 
 to-report nest-scent-at-angle [angle]
@@ -146,6 +163,9 @@ to-report chemical-scent-at-angle [angle]
   report [chemical] of p
 end
 
+to death ;; turtle procedure
+  if energy < 0 [die]
+end
 
 ; Copyright 1997 Uri Wilensky.
 ; See Info tab for full copyright and license.
@@ -203,7 +223,7 @@ diffusion-rate
 diffusion-rate
 0.0
 99.0
-51
+33
 1.0
 1
 NIL
@@ -218,7 +238,7 @@ evaporation-rate
 evaporation-rate
 0.0
 99.0
-10
+7
 1.0
 1
 NIL
@@ -250,7 +270,7 @@ population
 population
 0.0
 200.0
-7
+30
 1.0
 1
 NIL
@@ -275,6 +295,75 @@ PENS
 "food-in-pile1" 1.0 0 -11221820 true "" "plotxy ticks sum [food] of patches with [pcolor = cyan]"
 "food-in-pile2" 1.0 0 -13791810 true "" "plotxy ticks sum [food] of patches with [pcolor = sky]"
 "food-in-pile3" 1.0 0 -13345367 true "" "plotxy ticks sum [food] of patches with [pcolor = blue]"
+
+PLOT
+803
+88
+1003
+238
+Food in the nest
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"nest food" 1.0 0 -16777216 true "" "plotxy ticks sum [nestfood] of patches with [pcolor = violet]"
+
+PLOT
+806
+253
+1006
+403
+plot 1
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot count turtles energy"
+
+PLOT
+1088
+95
+1288
+245
+plot 2
+population
+ticks
+0.0
+30.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot count turtles"
+
+SLIDER
+1103
+297
+1275
+330
+StartEnergy
+StartEnergy
+0
+500
+347
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
