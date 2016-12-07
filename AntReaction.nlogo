@@ -76,7 +76,7 @@ to recolor-patch  ;; patch procedure
       if food-source-number = 3 [ set pcolor blue ] ]
     [ifelse danger? != 0
       [set pcolor red]
-      [ color-chemicals]
+      [color-chemicals]
 
     ]
   ]
