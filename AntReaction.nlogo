@@ -21,7 +21,6 @@ to setup
   [ set size 2         ;; easier to see
     set color yellow  ]   ;; red = not carrying food
   ;;
-  ;;
   setup-patches
   reset-ticks
 end
@@ -56,11 +55,16 @@ to setup-food  ;; patch procedure
   [ set food one-of [1 2] ]
 end
 
-to setup-danger ;;patch procedure
-;;checks on the edge of the map whether something is present: if not, place an enemy 'once'
-;;for now, let's do it static and at init
 
-end
+;;;;;;;;;;;;;;
+;;DANGERMODE;;
+;;;;;;;;;;;;;;
+
+
+;;;;;;;;;;;;;;;;;;
+;;END DANGERMODE;;
+;;;;;;;;;;;;;;;;;;
+
 
 to recolor-patch  ;; patch procedure
   ;; give color to nest and food sources
@@ -70,11 +74,24 @@ to recolor-patch  ;; patch procedure
     [ if food-source-number = 1 [ set pcolor cyan ]
       if food-source-number = 2 [ set pcolor sky  ]
       if food-source-number = 3 [ set pcolor blue ] ]
-    ;; scale color to show chemical concentration
-    ;self-note: shows the chemical trail from food-source to nest
-    [ set pcolor scale-color green chemical 0.1 5 ] ]
+    [ifelse danger? != 0
+      [set pcolor red]
+      [ color-chemicals]
+
+    ]
+  ]
 end
 
+to color-chemicals ;; scale color to show chemical concentration
+  set pcolor scale-color green chemical 0.1 5
+end
+
+to setup-danger ;; patch procedure
+  if (distancexy (0.8 * max-pxcor) (0.8 * max-pycor)) < 5
+  [
+    set danger? true
+  ]
+end
 ;;;;;;;;;;;;;;;;;;;;;
 ;;; Go procedures ;;;
 ;;;;;;;;;;;;;;;;;;;;;
@@ -266,7 +283,7 @@ population
 population
 0.0
 200.0
-7
+8
 1.0
 1
 NIL
