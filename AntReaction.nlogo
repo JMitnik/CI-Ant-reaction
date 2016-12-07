@@ -1,5 +1,9 @@
 patches-own [
   chemical             ;; amount of chemical on this patch
+  ;;
+  danger-chemical      ;; amount of danger pheromones left by ants
+  danger?              ;; true on dangerous patches, false elsewhere
+  ;;
   food                 ;; amount of food on this patch (0, 1, or 2)
   nest?                ;; true on nest patches, false elsewhere
   nest-scent           ;; number that is higher closer to the nest
@@ -15,7 +19,9 @@ to setup
   set-default-shape turtles "bug"
   create-turtles population
   [ set size 2         ;; easier to see
-    set color red  ]   ;; red = not carrying food
+    set color yellow  ]   ;; red = not carrying food
+  ;;
+  ;;
   setup-patches
   reset-ticks
 end
@@ -24,6 +30,7 @@ to setup-patches
   ask patches
   [ setup-nest
     setup-food
+    setup-danger
     recolor-patch ]
 end
 
@@ -49,6 +56,11 @@ to setup-food  ;; patch procedure
   [ set food one-of [1 2] ]
 end
 
+to setup-danger ;;patch procedure
+;;checks on the edge of the map whether something is present: if not, place an enemy 'once'
+;;for now, let's do it static and at init
+end
+
 to recolor-patch  ;; patch procedure
   ;; give color to nest and food sources
   ifelse nest?
@@ -70,14 +82,15 @@ to go  ;; forever button
   ask turtles
   ;;this works by saying that if the id of the turtle (the number of the turtle) is below the passed time/ticks, you stop
   [ if who >= ticks [ stop ] ;; delay initial departure
-    ifelse color = red
+    ifelse color = yellow
     [ look-for-food  ]       ;; not carrying food? look for it
     [ return-to-nest ]       ;; carrying food? take it back to nest
     wiggle
     fd 1 ]
   diffuse chemical (diffusion-rate / 100)
-  ;;THIS Is related to how long the chemicals last on each patch
+  ;;THIS Is related to how much the neighbour gets of the chemical
   ask patches
+  ;;THIS is related to how long the checmical lasts
   [ set chemical chemical * (100 - evaporation-rate) / 100  ;; slowly evaporate chemical
     recolor-patch ]
   tick
@@ -86,8 +99,7 @@ end
 to return-to-nest  ;; turtle procedure
   ifelse nest?
   [ ;; drop food and head out again\
-
-
+    ;T2!
     ;this is where the code will go for THOMAS's food addition!!
     set color red
     rt 180 ]
@@ -118,6 +130,7 @@ to uphill-chemical  ;; turtle procedure
 end
 
 ;; sniff left and right, and go where the strongest smell is
+;; T3: this is where our return-obstacles path will be built eventually!
 to uphill-nest-scent  ;; turtle procedure
   let scent-ahead nest-scent-at-angle   0
   let scent-right nest-scent-at-angle  45
@@ -145,6 +158,8 @@ to-report chemical-scent-at-angle [angle]
   if p = nobody [ report 0 ]
   report [chemical] of p
 end
+
+
 
 
 ; Copyright 1997 Uri Wilensky.
