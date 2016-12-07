@@ -7,6 +7,7 @@ patches-own [
   food                 ;; amount of food on this patch (0, 1, or 2)
   nest?                ;; true on nest patches, false elsewhere
   nest-scent           ;; number that is higher closer to the nest
+  ;;
   food-source-number   ;; number (1, 2, or 3) to identify the food sources
 ]
 
