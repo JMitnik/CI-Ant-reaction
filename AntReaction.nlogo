@@ -24,7 +24,7 @@ to setup
   create-turtles population
   [ set size 2         ;; easier to see
     set color yellow  ]   ;; red = not carrying food
-  ;;
+
   setup-patches
   reset-ticks
 end
@@ -59,17 +59,6 @@ to setup-food  ;; patch procedure
   [ set food one-of [1 2] ]
 end
 
-
-;;;;;;;;;;;;;;
-;;DANGERMODE;;
-;;;;;;;;;;;;;;
-
-
-;;;;;;;;;;;;;;;;;;
-;;END DANGERMODE;;
-;;;;;;;;;;;;;;;;;;
-
-
 to recolor-patch  ;; patch procedure
   ;; give color to nest and food sources
   ifelse nest?
@@ -81,24 +70,20 @@ to recolor-patch  ;; patch procedure
     [ifelse danger? != 0
       [set pcolor red]
       [color-chemicals]
-
     ]
   ]
 end
 
 to color-chemicals ;; scale color to show chemical concentration
-  ifelse chemical > danger-chemical [
-    set pcolor scale-color green ((chemical) - (danger-chemical)) 0.1 5]
-  [
-
-    set pcolor scale-color red ((danger-chemical) - (chemical)) 0.1 5]
+  ifelse chemical > danger-chemical
+    [set pcolor scale-color green ((chemical) - (danger-chemical)) 0.1 5]
+    [set pcolor scale-color red ((danger-chemical) - (chemical)) 0.1 5]
 end
 
 to setup-danger ;; patch procedure
   if (distancexy (0.8 * max-pxcor) (0.8 * max-pycor)) < 5
-  [
-    set danger? true
-    set danger-chemical 300
+  [ set danger? true
+;;    set danger-chemical 300 ]
   ]
 end
 ;;;;;;;;;;;;;;;;;;;;;
@@ -106,67 +91,91 @@ end
 ;;;;;;;;;;;;;;;;;;;;;
 
 to go  ;; forever button
-  ask turtles
-  ;;this works by saying that if the id of the turtle (the number of the turtle) is below the passed time/ticks, you stop
-  [ if who >= ticks [ stop ] ;; delay initial departure
-    ifelse color = yellow
-    [ survive  ]       ;; not carrying food? look for it
-    [ ifelse color = red
-      [flee-in-panic]
-      [return-to-nest ]
-    ]   ;; carrying food? take it back to nest
-    wiggle
-    fd 1 ]
-  diffuse chemical (diffusion-rate / 100)
-  diffuse danger-chemical (diffusion-rate / 100)
-  ;;THIS Is related to how much the neighbour gets of the chemical
-  ask patches
-  ;;THIS is related to how long the checmical lasts
-  [ set chemical chemical * (100 - evaporation-rate) / 100  ;; slowly evaporate chemical
-    set danger-chemical danger-chemical * (100 - evaporation-rate) / 100
-    recolor-patch ]
+  turtle-per-tick
+  chemicals-per-tick
   tick
 end
 
+;;;;;;;;;;;;;;;;;;;;;;;
+;;; Tick procedures ;;;
+;;;;;;;;;;;;;;;;;;;;;;;
 
-;;if they flee, they ignore all dangers anyways
-to flee-in-panic ;; turtle procedure
-  ifelse danger-chemical-ant > 20
-  [set danger-chemical danger-chemical-ant
-  set danger-chemical-ant danger-chemical-ant - 50]
-  [set color yellow]
+to turtle-per-tick
+  ask turtles
+  [ if who >= ticks
+    [ stop ] ;; delay initial departure
+
+    ifelse color = yellow
+    [ explore  ] ;; if color of ants is neutral, they walk around and explore
+    [ ifelse color = red ;; if not neutral, and they are in a state of panic
+      [ flee-in-danger ]  ;; then the ants will be in danger mode
+      [ return-to-nest ] ] ;; if the ants are neither neutral nor in danger, they will return to the nest
+
+      wiggle
+      fd 1 ]
 end
 
-to return-to-nest  ;; turtle procedure
-  ifelse nest?
-  [ ;; drop food and head out again\
-    ;T2!
-    ;this is where the code will go for THOMAS's food addition!!
-    set color yellow
-    rt 180 ]
-  [ set chemical chemical + 60  ;; drop some chemical
-    uphill-nest-scent ]         ;; head toward the greatest value of nest-scent
+to chemicals-per-tick
+  diffuse chemical (diffusion-rate / 100)
+  diffuse danger-chemical (diffusion-rate / 100)
+
+  ask patches
+  [ set chemical chemical * (100 - evaporation-rate) / 100  ;; slowly evaporate chemical
+    set danger-chemical danger-chemical * (100 - evaporation-rate) / 100
+    recolor-patch ]
 end
 
-to survive
-  if food > 0
-    [look-for-food]
-  ;;if danger- = true
-    ;;[run-away]
-  if danger-chemical > 0
-     [run-away]
-  ;; go in the direction where the chemical smell is strongest
+to explore
+  if food > 0 ;; if the ants stumble on a patch of food
+    [grab-food] ;; grab food (FORMER: look-for-food)
+  if danger? = true ;;if the ants encounter an enemy
+     [enemy-encounter] ;;flee the
+  if danger-chemical > 0.01
+     [danger-chemical-encounter]
   if (chemical >= 0.05) and (chemical < 2)
   [ uphill-chemical ]
 end
 
-to run-away
+to wiggle  ;; turtle procedure
+  rt random 40
+  lt random 40
+  if not can-move? 1 [ rt 180 ]
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Danger procedures ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;if they flee, they ignore all dangers anyways
+to flee-in-danger ;; turtle procedure
+  ifelse danger-chemical-ant > 0.01
+  [set danger-chemical danger-chemical-ant
+  set danger-chemical-ant danger-chemical-ant - 15]
+  [set color yellow]
+end
+
+to danger-chemical-encounter
   set danger-chemical-ant danger-chemical
   rt 180
   set color red
 end
 
-to look-for-food  ;; turtle procedure
+to enemy-encounter
+  set danger-chemical-ant 400
+  rt 180
+  set color red
+end
+
+to return-to-nest  ;; turtle procedure
+  ifelse nest?
+  [ set color yellow
+    rt 180 ]
+  [ set chemical chemical + 60  ;; drop some chemical
+    uphill-nest-scent ]         ;; head toward the greatest value of nest-scent
+end
+
+
+to grab-food  ;; turtle procedure
   set color orange + 1     ;; pick up food
     set food food - 1        ;; and reduce the food source
     rt 180                   ;; and turn around
@@ -196,11 +205,6 @@ to uphill-nest-scent  ;; turtle procedure
     [ lt 45 ] ]
 end
 
-to wiggle  ;; turtle procedure
-  rt random 40
-  lt random 40
-  if not can-move? 1 [ rt 180 ]
-end
 
 to-report nest-scent-at-angle [angle]
   let p patch-right-and-ahead angle 1
@@ -272,7 +276,7 @@ diffusion-rate
 diffusion-rate
 0.0
 99.0
-51
+50
 1.0
 1
 NIL
@@ -319,7 +323,7 @@ population
 population
 0.0
 200.0
-144
+194
 1.0
 1
 NIL
