@@ -1,3 +1,6 @@
+breed [scouts scout]
+breed [foragers forager]
+
 patches-own [
   chemical             ;; amount of chemical on this patch
   food                 ;; amount of food on this patch (0, 1, or 2)
@@ -5,23 +8,38 @@ patches-own [
   nest-scent           ;; number that is higher closer to the nest
   food-source-number   ;; number (1, 2, or 3) to identify the food sources
   nestfood             ;; food in the nest
+  foragerActive?
+  secondTicks
 ]
-turtles-own [energy]    ;; energy for each ant
+scouts-own [energy]    ;; energy for each scout
+foragers-own [
+  energy
+
+  ]  ;; energy for each forager
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Setup procedures ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;
 
-to setup
+to setup              ;; setup scouts
   clear-all
-  set-default-shape turtles "bug"
-  create-turtles population
+  set-default-shape scouts "bug"
+  create-scouts population / 2
   [ set size 2         ;; easier to see
     set color red      ;; red = not carrying food
     set  energy startenergy ]  ;; power level of the ants
   setup-patches
+  setup-foragers
   reset-ticks
+end
+
+to setup-foragers               ;; setup foragers
+  set-default-shape foragers "bug"
+  create-foragers population / 2
+  [ set size 2         ;; easier to see
+    set color blue      ;; red = not carrying food
+    set  energy startenergy ]  ;; power level of the ants
 end
 
 to setup-patches
@@ -29,7 +47,7 @@ to setup-patches
   [ setup-nest
     setup-food
     recolor-patch
-    set nestfood 0 ]
+    set nestfood startfood ]
 end
 
 
@@ -75,15 +93,29 @@ end
 
 
 to go  ;; forever button
-
-  ask turtles
+  let forager-active false
+  let second-ticks 0
+  ask scouts
   [ if who >= ticks [ stop ] ;; delay initial departure
     ifelse color = red
-    [ enough-food  ]       ;; not carrying food? look for it
-    [ return-to-nest ]       ;; carrying food? take it back to nest
+    [ look-for-food
+      enough-food]       ;; not carrying food? look for it
+    [ return-to-nest
+      enough-food ]       ;; carrying food? take it back to nest
     wiggle
     death
     fd 1 ]
+
+  ask patches with [nest?] [
+    if foragerActive? = true
+    [set forager-active true
+     set second-ticks secondTicks
+      ]
+  ]
+
+  if forager-active = true
+  [ foragerGo second-ticks]
+
   diffuse chemical (diffusion-rate / 100)
   ask patches
   [ set chemical chemical * (100 - evaporation-rate) / 100  ;; slowly evaporate chemical
@@ -91,12 +123,29 @@ to go  ;; forever button
   tick
 end
 
+to foragerGo [second-ticks]
+  ask foragers
+  [ if who >= second-ticks [ stop ] ;; delay initial departure
+    ifelse color = blue
+    [ look-for-food
+      enough-food]       ;; not carrying food? look for it
+    [ return-to-nest
+      enough-food ]       ;; carrying food? take it back to nest
+    wiggle
+    death
+    fd 1 ]
+  diffuse chemical (diffusion-rate / 100)
+  ask patches
+  [ set chemical chemical * (100 - evaporation-rate) / 100  ;; slowly evaporate chemical
+    recolor-patch ]
+end
+
 to enough-food
   ifelse nest?
   [ ifelse energy < 200
     [ if nestfood > 0
       [ set nestfood nestfood - 1
-        set energy energy + 250]]
+        set energy energy + EnergyperFood]]
       [ look-for-food ]]
   [ look-for-food ]
 end
@@ -106,7 +155,13 @@ to return-to-nest  ;; turtle procedure
   [ ;; drop food and head out again
     set color red
     rt 180
-    set nestfood nestfood + 1 ]
+    set nestfood nestfood + 1
+    ask patches with [nest? = true] in-radius 100
+    [
+      set foragerActive? true
+      set secondTicks ticks
+    ]
+  ]
   [ set chemical chemical + 60  ;; drop some chemical
     uphill-nest-scent ]         ;; head toward the greatest value of nest-scent
 end
@@ -116,6 +171,7 @@ to look-for-food  ;; turtle procedure
   [ set color orange + 1     ;; pick up food
     set food food - 1        ;; and reduce the food source
     rt 180                   ;; and turn around
+
     stop ]
   ;; go in the direction where the chemical smell is strongest
   if (chemical >= 0.05) and (chemical < 2)
@@ -198,10 +254,10 @@ ticks
 30.0
 
 BUTTON
-46
-71
-126
-104
+4
+44
+84
+77
 NIL
 setup
 NIL
@@ -215,40 +271,40 @@ NIL
 1
 
 SLIDER
-31
-106
-221
-139
+4
+81
+194
+114
 diffusion-rate
 diffusion-rate
 0.0
 99.0
-33
+85
 1.0
 1
 NIL
 HORIZONTAL
 
 SLIDER
-31
-141
-221
-174
+5
+116
+195
+149
 evaporation-rate
 evaporation-rate
 0.0
 99.0
-7
+10
 1.0
 1
 NIL
 HORIZONTAL
 
 BUTTON
-136
-71
-211
-104
+89
+44
+164
+77
 NIL
 go
 T
@@ -262,25 +318,25 @@ NIL
 0
 
 SLIDER
-31
-36
-221
-69
+4
+10
+194
+43
 population
 population
 0.0
-200.0
-30
+600.0
+106
 1.0
 1
 NIL
 HORIZONTAL
 
 PLOT
-5
-197
+13
+288
 248
-476
+508
 Food in each pile
 time
 food
@@ -297,10 +353,10 @@ PENS
 "food-in-pile3" 1.0 0 -13345367 true "" "plotxy ticks sum [food] of patches with [pcolor = blue]"
 
 PLOT
-803
-88
-1003
-238
+776
+11
+976
+161
 Food in the nest
 NIL
 NIL
@@ -315,29 +371,11 @@ PENS
 "nest food" 1.0 0 -16777216 true "" "plotxy ticks sum [nestfood] of patches with [pcolor = violet]"
 
 PLOT
-806
-253
-1006
-403
-plot 1
-NIL
-NIL
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"default" 1.0 0 -16777216 true "" "plot count turtles energy"
-
-PLOT
-1088
-95
-1288
-245
-plot 2
+775
+167
+975
+317
+Population during Sim
 population
 ticks
 0.0
@@ -351,15 +389,45 @@ PENS
 "default" 1.0 0 -16777216 true "" "plot count turtles"
 
 SLIDER
-1103
-297
-1275
-330
+5
+150
+195
+183
 StartEnergy
 StartEnergy
 0
 500
-347
+354
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+9
+195
+181
+228
+EnergyperFood
+EnergyperFood
+0
+200
+101
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+20
+243
+192
+276
+Startfood
+Startfood
+0
+100
+0
 1
 1
 NIL
