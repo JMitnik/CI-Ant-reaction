@@ -83,7 +83,6 @@ end
 to setup-danger ;; patch procedure
   if (distancexy (0.8 * max-pxcor) (0.8 * max-pycor)) < 5
   [ set danger? true
-;;    set danger-chemical 300 ]
   ]
 end
 ;;;;;;;;;;;;;;;;;;;;;
@@ -117,11 +116,11 @@ end
 
 to chemicals-per-tick
   diffuse chemical (diffusion-rate / 100)
-  diffuse danger-chemical (diffusion-rate / 100)
+  diffuse danger-chemical (diffusion-rate / 1000)
 
   ask patches
   [ set chemical chemical * (100 - evaporation-rate) / 100  ;; slowly evaporate chemical
-    set danger-chemical danger-chemical * (100 - evaporation-rate) / 100
+    set danger-chemical danger-chemical * (evaporation-rate) / 100
     recolor-patch ]
 end
 
@@ -130,10 +129,13 @@ to explore
     [grab-food] ;; grab food (FORMER: look-for-food)
   if danger? = true ;;if the ants encounter an enemy
      [enemy-encounter] ;;flee the
-  if danger-chemical > 0.01
+  if danger-chemical > 1
      [danger-chemical-encounter]
-  if (chemical >= 0.05) and (chemical < 2)
+  ifelse (chemical >= 0.05) and (chemical < 2)
   [ uphill-chemical ]
+  [if danger-pheromone = true and danger-chemical >= 0.05 and (danger-chemical < 50)
+    [downhill-danger-chemical]
+    ]
 end
 
 to wiggle  ;; turtle procedure
@@ -146,25 +148,37 @@ end
 ;;; Danger procedures ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;if they flee, they ignore all dangers anyways
+to enemy-encounter
+  let xcoor xcor
+  let ycoor ycor
+  ask patches in-radius 10 [
+    set danger-chemical 10 - distancexy xcoor ycoor
+  ]
+  die
+end
+
 to flee-in-danger ;; turtle procedure
-  ifelse danger-chemical-ant > 0.01
-  [set danger-chemical danger-chemical-ant
-  set danger-chemical-ant danger-chemical-ant - 15]
-  [set color yellow]
+;  ifelse danger-chemical-ant > 3
+;  [set danger-chemical danger-chemical-ant
+;  set danger-chemical-ant danger-chemical-ant - 15]
+;  [set color yellow]
 end
 
 to danger-chemical-encounter
-  set danger-chemical-ant danger-chemical
-  rt 180
-  set color red
+;  set danger-chemical-ant danger-chemical
+;  rt 180
+;  set color red
 end
 
-to enemy-encounter
-  set danger-chemical-ant 400
-  rt 180
-  set color red
-end
+;to enemy-encounter
+;  set danger-chemical-ant 400
+;  rt 180
+;  set color red
+;end
+
+;;;;;;;;;;;;;;;;;;;;;;;
+;;; Food procedures ;;;
+;;;;;;;;;;;;;;;;;;;;;;;
 
 to return-to-nest  ;; turtle procedure
   ifelse nest?
@@ -182,7 +196,23 @@ to grab-food  ;; turtle procedure
     stop
 end
 
-;; sniff left and right, and go where the strongest smell is
+;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Sniff procedures ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;
+
+to downhill-danger-chemical
+  let scent-ahead danger-chemical-at-angle   0
+  let scent-right danger-chemical-at-angle  45
+  let scent-left  danger-chemical-at-angle -45
+  if (scent-ahead > scent-right) or (scent-ahead > scent-left)
+  [ ifelse scent-right > scent-left
+    [ lt 45
+       ]
+    [ rt 45
+      ] ]
+end
+
+;;When looking for food, sniffs chemical, and rotate towards the strongest smell
 to uphill-chemical  ;; turtle procedure
   let scent-ahead chemical-scent-at-angle   0
   let scent-right chemical-scent-at-angle  45
@@ -193,8 +223,7 @@ to uphill-chemical  ;; turtle procedure
     [ lt 45 ] ]
 end
 
-;; sniff left and right, and go where the strongest smell is
-;; T3: this is where our return-obstacles path will be built eventually!
+;;When carrying food back to the nest, sniffs the nest's scent, and rotates towards the strongest smell.
 to uphill-nest-scent  ;; turtle procedure
   let scent-ahead nest-scent-at-angle   0
   let scent-right nest-scent-at-angle  45
@@ -205,13 +234,24 @@ to uphill-nest-scent  ;; turtle procedure
     [ lt 45 ] ]
 end
 
+;;Input: an angle
+;;Output: the strength of the danger-chemical-scent at [angle]
+to-report danger-chemical-at-angle [angle]
+  let p patch-right-and-ahead angle 1
+  if p = nobody [ report 0 ]
+  report [danger-chemical] of p
+end
 
+;;Input: an angle
+;;Output: the strength of the nest-scent at [angle]
 to-report nest-scent-at-angle [angle]
   let p patch-right-and-ahead angle 1
   if p = nobody [ report 0 ]
   report [nest-scent] of p
 end
 
+;;Input: an angle
+;;Output: the strength of the chemical-scent at [angle]
 to-report chemical-scent-at-angle [angle]
   let p patch-right-and-ahead angle 1
   if p = nobody [ report 0 ]
@@ -219,8 +259,6 @@ to-report chemical-scent-at-angle [angle]
 end
 
 
-
-; Copyright 1997 Uri Wilensky.
 ; See Info tab for full copyright and license.
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -276,7 +314,7 @@ diffusion-rate
 diffusion-rate
 0.0
 99.0
-50
+91
 1.0
 1
 NIL
@@ -291,7 +329,7 @@ evaporation-rate
 evaporation-rate
 0.0
 99.0
-10
+99
 1.0
 1
 NIL
@@ -322,8 +360,8 @@ SLIDER
 population
 population
 0.0
-200.0
-194
+400.0
+400
 1.0
 1
 NIL
@@ -348,6 +386,17 @@ PENS
 "food-in-pile1" 1.0 0 -11221820 true "" "plotxy ticks sum [food] of patches with [pcolor = cyan]"
 "food-in-pile2" 1.0 0 -13791810 true "" "plotxy ticks sum [food] of patches with [pcolor = sky]"
 "food-in-pile3" 1.0 0 -13345367 true "" "plotxy ticks sum [food] of patches with [pcolor = blue]"
+
+SWITCH
+817
+94
+997
+127
+Danger-pheromone
+Danger-pheromone
+1
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
