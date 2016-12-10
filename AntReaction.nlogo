@@ -8,15 +8,16 @@ patches-own [
   nest-scent           ;; number that is higher closer to the nest
   food-source-number   ;; number (1, 2, or 3) to identify the food sources
   nestfood             ;; food in the nest
-  foragerActive?
-  secondTicks
+  foragerActive?       ;; true once the first scout reaches the nest with food, false before
+  secondTicks          ;; variable that holds the number of ticks it takes until the first food reaches the nest
 ]
 scouts-own [energy]    ;; energy for each scout
 foragers-own [
   energy
 
-  ]  ;; energy for each forager
+]  ;; energy for each forager
 
+globals  [population]
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Setup procedures ;;;
@@ -24,19 +25,22 @@ foragers-own [
 
 to setup              ;; setup scouts
   clear-all
+  set population amount_foragers + amount_scouts
   set-default-shape scouts "bug"
-  create-scouts population / 2
+  create-scouts amount_scouts
   [ set size 2         ;; easier to see
     set color red      ;; red = not carrying food
     set  energy startenergy ]  ;; power level of the ants
   setup-patches
   setup-foragers
+
+
   reset-ticks
 end
 
 to setup-foragers               ;; setup foragers
   set-default-shape foragers "bug"
-  create-foragers population / 2
+  create-foragers amount_foragers
   [ set size 2         ;; easier to see
     set color blue      ;; red = not carrying food
     set  energy startenergy ]  ;; power level of the ants
@@ -124,16 +128,33 @@ to go  ;; forever button
 end
 
 to foragerGo [second-ticks]
-  ask foragers
-  [ if who >= second-ticks [ stop ] ;; delay initial departure
-    ifelse color = blue
-    [ look-for-food
-      enough-food]       ;; not carrying food? look for it
-    [ return-to-nest
-      enough-food ]       ;; carrying food? take it back to nest
-    wiggle
-    death
-    fd 1 ]
+  print second-ticks
+  ifelse amount_scouts < second-ticks     ;; if scouts bring food back after they all deplete the nest
+    [ ask foragers
+    [ if who + ( second-ticks - amount_scouts ) >= ticks [ stop ] ;; delay initial departure
+      ifelse color = blue
+      [ look-for-food
+        enough-food]       ;; not carrying food? look for it
+      [ return-to-nest
+        enough-food ]       ;; carrying food? take it back to nest
+      wiggle
+      death
+      fd 1 ]
+    ]
+    [ ask foragers              ;; if scouts bring food when they are still moving from nest
+    [ if who >= ticks  [ stop ] ;; delay initial departure
+      ifelse color = blue
+      [ look-for-food
+        enough-food]       ;; not carrying food? look for it
+      [ return-to-nest
+        enough-food ]       ;; carrying food? take it back to nest
+      wiggle
+      death
+      ; set foragersnumber ( foragersnumber + 1 )
+      ; print foragersnumber
+      fd 1 ]
+    ]
+
   diffuse chemical (diffusion-rate / 100)
   ask patches
   [ set chemical chemical * (100 - evaporation-rate) / 100  ;; slowly evaporate chemical
@@ -159,6 +180,7 @@ to return-to-nest  ;; turtle procedure
     ask patches with [nest? = true] in-radius 100
     [
       set foragerActive? true
+      print foragerActive?
       set secondTicks ticks
     ]
   ]
@@ -322,21 +344,21 @@ SLIDER
 10
 194
 43
-population
-population
-0.0
-600.0
-106
-1.0
+amount_scouts
+amount_scouts
+0
+300
+26
+1
 1
 NIL
 HORIZONTAL
 
 PLOT
 13
-288
+332
 248
-508
+543
 Food in each pile
 time
 food
@@ -397,7 +419,7 @@ StartEnergy
 StartEnergy
 0
 500
-354
+100
 1
 1
 NIL
@@ -428,6 +450,21 @@ Startfood
 0
 100
 0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+21
+288
+193
+321
+amount_foragers
+amount_foragers
+0
+300
+66
 1
 1
 NIL
