@@ -17,15 +17,12 @@ foragers-own [
 
 ]  ;; energy for each forager
 
-globals  [population]
-
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Setup procedures ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;
 
 to setup              ;; setup scouts
   clear-all
-  set population amount_foragers + amount_scouts
   set-default-shape scouts "bug"
   create-scouts amount_scouts
   [ set size 2         ;; easier to see
@@ -128,32 +125,16 @@ to go  ;; forever button
 end
 
 to foragerGo [second-ticks]
-  print second-ticks
-  ifelse amount_scouts < second-ticks     ;; if scouts bring food back after they all deplete the nest
-    [ ask foragers
-    [ if who + ( second-ticks - amount_scouts ) >= ticks [ stop ] ;; delay initial departure
-      ifelse color = blue
-      [ look-for-food
-        enough-food]       ;; not carrying food? look for it
-      [ return-to-nest
-        enough-food ]       ;; carrying food? take it back to nest
-      wiggle
-      death
-      fd 1 ]
-    ]
-    [ ask foragers              ;; if scouts bring food when they are still moving from nest
-    [ if who >= ticks  [ stop ] ;; delay initial departure
-      ifelse color = blue
-      [ look-for-food
-        enough-food]       ;; not carrying food? look for it
-      [ return-to-nest
-        enough-food ]       ;; carrying food? take it back to nest
-      wiggle
-      death
-      ; set foragersnumber ( foragersnumber + 1 )
-      ; print foragersnumber
-      fd 1 ]
-    ]
+  ask foragers
+  [ if who + ( second-ticks - amount_scouts ) >= ticks [ stop ] ;; delay initial departure
+    ifelse color = blue or color = red
+    [ look-for-food
+      enough-food]       ;; not carrying food? look for it
+    [ return-to-nest
+      enough-food ]       ;; carrying food? take it back to nest
+    wiggle
+    death
+    fd 1 ]
 
   diffuse chemical (diffusion-rate / 100)
   ask patches
@@ -180,7 +161,6 @@ to return-to-nest  ;; turtle procedure
     ask patches with [nest? = true] in-radius 100
     [
       set foragerActive? true
-      print foragerActive?
       set secondTicks ticks
     ]
   ]
@@ -348,7 +328,7 @@ amount_scouts
 amount_scouts
 0
 300
-26
+35
 1
 1
 NIL
@@ -419,7 +399,7 @@ StartEnergy
 StartEnergy
 0
 500
-100
+291
 1
 1
 NIL
@@ -449,7 +429,7 @@ Startfood
 Startfood
 0
 100
-0
+1
 1
 1
 NIL
@@ -464,7 +444,7 @@ amount_foragers
 amount_foragers
 0
 300
-66
+36
 1
 1
 NIL
