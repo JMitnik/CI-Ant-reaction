@@ -1,6 +1,14 @@
+
+globals [
+  x1 ;; random value of food 1
+
+
+
+
+]
 patches-own [
   chemical             ;; amount of chemical on this patch
-  ;;
+  x;;
   danger-chemical      ;; amount of danger pheromones left by ants
   danger?              ;; true on dangerous patches, false elsewhere
   ;;
@@ -20,10 +28,13 @@ turtles-own [
 
 to setup
   clear-all
+  set x1 (-1 + (random 20 / 10))
   set-default-shape turtles "bug"
   create-turtles population
+
   [ set size 2         ;; easier to see
-    set color yellow  ]   ;; red = not carrying food
+    set color yellow ]   ;; red = not carrying food
+
 
   setup-patches
   reset-ticks
@@ -46,8 +57,10 @@ end
 
 to setup-food  ;; patch procedure
   ;; setup food source one on the right
-  if (distancexy (0.6 * max-pxcor) 0) < 5
-  [ set food-source-number 1 ]
+
+  if (distancexy ((x1) * max-pxcor) 0) < 5
+  [ set food-source-number 1
+    print x1]
   ;; setup food source two on the lower-left
   if (distancexy (-0.6 * max-pxcor) (-0.6 * max-pycor)) < 5
   [ set food-source-number 2 ]
@@ -81,7 +94,7 @@ to color-chemicals ;; scale color to show chemical concentration
 end
 
 to setup-danger ;; patch procedure
-  if (distancexy (0.8 * max-pxcor) (0.8 * max-pycor)) < 5
+  if (distancexy (0.8 * max-pxcor) (0.8 * max-pycor)) < 5 ;; variabele ervan maken! groote en locatie van het gevaar
   [ set danger? true
   ]
 end
@@ -113,6 +126,7 @@ to turtle-per-tick
       wiggle
       fd 1 ]
 end
+
 
 to chemicals-per-tick
   diffuse chemical (diffusion-rate / 100)
@@ -329,7 +343,7 @@ evaporation-rate
 evaporation-rate
 0.0
 99.0
-99
+21
 1.0
 1
 NIL
