@@ -143,13 +143,12 @@ to foragerGo [second-ticks]
 end
 
 to enough-food
-  ifelse nest?
+  if nest?
   [ ifelse energy < 200
     [ if nestfood > 0
       [ set nestfood nestfood - 1
         set energy energy + EnergyperFood]]
       [ look-for-food ]]
-  [ look-for-food ]
 end
 
 to return-to-nest  ;; turtle procedure
@@ -160,7 +159,7 @@ to return-to-nest  ;; turtle procedure
     set nestfood nestfood + 1
     ask patches with [nest? = true] in-radius 100
     [
-      if foragerActive? false
+      if foragerActive? != true
       [set foragerActive? true
       set secondTicks ticks]
     ]
@@ -282,7 +281,7 @@ diffusion-rate
 diffusion-rate
 0.0
 99.0
-85
+84
 1.0
 1
 NIL
