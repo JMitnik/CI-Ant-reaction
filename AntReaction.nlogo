@@ -160,8 +160,9 @@ to return-to-nest  ;; turtle procedure
     set nestfood nestfood + 1
     ask patches with [nest? = true] in-radius 100
     [
-      set foragerActive? true
-      set secondTicks ticks
+      if foragerActive? false
+      [set foragerActive? true
+      set secondTicks ticks]
     ]
   ]
   [ set chemical chemical + 60  ;; drop some chemical
