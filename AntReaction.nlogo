@@ -184,7 +184,7 @@ to go  ;; forever button
   let forager-parameters nest-forager-activity
   turtles-per-tick forager-parameters
   chemicals-per-tick
-  ;tick
+  tick
 end
 
 ;;;;;;;;;;;;;;;;;;;;;;;
@@ -198,7 +198,8 @@ to turtles-per-tick [forager-parameters]
   ask turtles
   [ set energy energy - 1
     death
-    critical_condition]
+;    critical_condition]
+  ]
 end
 
 to scouts-per-tick
@@ -283,12 +284,11 @@ end
 ;;;;;;;;;;;;;;;;;;;;;;;
 
 to can-i-eat
-  if nest?
-  [ ifelse energy < 200
+  ifelse energy < 200
     [ if nestfood > 0
       [ set nestfood nestfood - 1
         set energy energy + EnergyperFood]]
-    [ explore ]]
+    [ explore ]
 end
 
 to grab-food  ;; turtle procedure
@@ -312,6 +312,7 @@ end
 to arrived-at-nest
   set color turtle-color
   set nestfood nestfood + 1
+  can-i-eat
   if turtle-color = blue
   [ wakeUpForagers ]
   rt 180
@@ -445,7 +446,7 @@ to wiggle  ;; turtle procedure
   rt random 40
   lt random 40
   if not can-move? 1 [ rt 180 ]
-  set energy energy - 2
+  set energy energy - 1
 end
 
 to death ;; turtle procedure
@@ -645,7 +646,7 @@ StartEnergy
 StartEnergy
 0
 500
-50
+500
 1
 1
 NIL
@@ -659,8 +660,8 @@ SLIDER
 EnergyperFood
 EnergyperFood
 0
-100
-50
+300
+300
 1
 1
 NIL
@@ -675,7 +676,7 @@ Startfood
 Startfood
 0
 200
-50
+113
 1
 1
 NIL
