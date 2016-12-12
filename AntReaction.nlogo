@@ -1,18 +1,39 @@
+
+;;;;;;;;;;;;;;;;;
+;;; Variables ;;;
+;;;;;;;;;;;;;;;;;
+
 patches-own [
   chemical             ;; amount of chemical on this patch
-  ;;
   danger-chemical      ;; amount of danger pheromones left by ants
   danger?              ;; true on dangerous patches, false elsewhere
-  ;;
+  food?                ;; true if center-patch has food
   food                 ;; amount of food on this patch (0, 1, or 2)
   nest?                ;; true on nest patches, false elsewhere
+  nestfood             ;; food in the nest
   nest-scent           ;; number that is higher closer to the nest
   food-source-number   ;; number (1, 2, or 3) to identify the food sources
+  foragerActive?       ;; true once the first scout reaches the nest with food, false before
+  secondTicks          ;; variable that holds the number of ticks it takes until the first food reaches the nest
 ]
 
+breed [scouts scout]
+breed [foragers forager]
+
 turtles-own [
+  food-carry-color     ;;
   danger-chemical-ant  ;; amount of fear-pheromone present on the current ant
 ]
+
+scouts-own [
+  energy
+  turtle-color
+  ]    ;; energy for each scout
+foragers-own [
+  energy
+  turtle-color
+  ]  ;; energy for each forager
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Setup procedures ;;;
@@ -20,13 +41,30 @@ turtles-own [
 
 to setup
   clear-all
-  set-default-shape turtles "bug"
-  create-turtles population
-  [ set size 2         ;; easier to see
-    set color yellow  ]   ;; red = not carrying food
-
+  setup-scouts
+  setup-foragers
   setup-patches
   reset-ticks
+end
+
+to setup-scouts
+  set-default-shape scouts "bug"
+  create-scouts amount_scouts
+  [ set size 2         ;; easier to see
+    set food-carry-color yellow
+    set turtle-color blue     ;; red = not carrying food
+    set color turtle-color
+    set  energy startenergy ]  ;; power level of the ants
+end
+
+to setup-foragers               ;; setup foragers
+  set-default-shape foragers "bug"
+  create-foragers amount_foragers
+  [ set size 2         ;; easier to see
+    set food-carry-color yellow
+    set turtle-color green
+    set color turtle-color      ;; blue = not carrying food
+    set energy startenergy ]  ;; power level of the ants
 end
 
 to setup-patches
@@ -37,12 +75,66 @@ to setup-patches
     recolor-patch ]
 end
 
+;to pre-init-food
+;  let i  1
+;  while [i < number-food] [
+;      let xcoor random-pxcor
+;      let ycoor random-pycor
+;
+;      ask patch xcoor ycoor
+;      [
+;        set food? true
+;        set food one-of [1 2]
+;        set food-source-number i
+;      ]
+;
+;      ;;in patches
+;
+;      ;;
+;      set i (i + 1)
+;      ]
+;end
+
 to setup-nest  ;; patch procedure
   ;; set nest? variable to true inside the nest, false elsewhere
   set nest? (distancexy 0 0) < 5
   ;; spread a nest-scent over the whole world -- stronger near the nest
   set nest-scent 200 - distancexy 0 0
+
+  if distancexy 0 0 < 5
+  [set nestfood ( startfood / 75.9 )]
 end
+
+;;;;;;;;;;;;;;;;;;
+;; Experimental ;;
+;;;;;;;;;;;;;;;;;;
+
+;to setup-food  ;; patch procedure
+;  if food? = true
+;  [
+;    let fsn food-source-number
+;    ask patches in-radius 2 [
+;          set food? true
+;          set food-source-number fsn
+;          set food one-of [1 2]
+;     ]
+;  ]
+;  if food-source-number > 0
+;  [ set food one-of [1 2] ]
+;end
+
+;to recolor-patch  ;; patch procedure
+;  ;; give color to nest and food sources
+;  ifelse nest?
+;  [ set pcolor violet ]
+;  [ ifelse food > 0
+;     [ set pcolor blue ]
+;    [ifelse danger? != 0
+;      [set pcolor red]
+;      [color-chemicals]
+;    ]
+;  ]
+;end
 
 to setup-food  ;; patch procedure
   ;; setup food source one on the right
@@ -59,8 +151,7 @@ to setup-food  ;; patch procedure
   [ set food one-of [1 2] ]
 end
 
-to recolor-patch  ;; patch procedure
-  ;; give color to nest and food sources
+to recolor-patch
   ifelse nest?
   [ set pcolor violet ]
   [ ifelse food > 0
@@ -82,37 +173,50 @@ end
 
 to setup-danger ;; patch procedure
   if (distancexy (0.8 * max-pxcor) (0.8 * max-pycor)) < 5
-  [ set danger? true
-  ]
+  [ set danger? true]
 end
+
 ;;;;;;;;;;;;;;;;;;;;;
 ;;; Go procedures ;;;
 ;;;;;;;;;;;;;;;;;;;;;
 
 to go  ;; forever button
-  turtle-per-tick
+  let forager-parameters nest-forager-activity
+  turtles-per-tick forager-parameters
   chemicals-per-tick
-  tick
+  ;tick
 end
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Tick procedures ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;
 
-to turtle-per-tick
+to turtles-per-tick [forager-parameters]
+  scouts-per-tick
+  foragers-per-tick forager-parameters
+
   ask turtles
-  [ if who >= ticks
-    [ stop ] ;; delay initial departure
-
-    ifelse color = yellow
-    [ explore  ] ;; if color of ants is neutral, they walk around and explore
-    [ ifelse color = red ;; if not neutral, and they are in a state of panic
-      [ flee-in-danger ]  ;; then the ants will be in danger mode
-      [ return-to-nest ] ] ;; if the ants are neither neutral nor in danger, they will return to the nest
-
-      wiggle
-      fd 1 ]
+  [ set energy energy - 1
+    death
+    critical_condition]
 end
+
+to scouts-per-tick
+  ask scouts
+  [ if who >= ticks [ stop ]
+     flee-explore-or-nest
+  ]
+end
+
+to foragers-per-tick [forager-parameters]
+;  print item 0 forager-parameters
+  if (item 0 forager-parameters) = true
+  [ ask foragers
+    [ if who + ( item 1 forager-parameters - amount_scouts ) >= ticks [ stop ] ;; delay initial departure
+      flee-explore-or-nest
+    ] ]
+end
+
 
 to chemicals-per-tick
   diffuse chemical (diffusion-rate / 100)
@@ -122,6 +226,42 @@ to chemicals-per-tick
   [ set chemical chemical * (100 - evaporation-rate) / 100  ;; slowly evaporate chemical
     set danger-chemical danger-chemical * (evaporation-rate) / 100
     recolor-patch ]
+end
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Activity procedure ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to-report nest-forager-activity
+    let forager-active false
+    let second-ticks 0
+     ask patches with [nest?] [
+       if foragerActive? = true
+       [ set forager-active true
+         set second-ticks secondTicks
+       ] ]
+    let result list (forager-active) (second-ticks)
+    set result list (forager-active) (second-ticks)
+    report result
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Slice-of-life procedures ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to flee-explore-or-nest
+  ifelse color = turtle-color
+    [ explore  ] ;; if color of ants is neutral, they walk around and explore
+
+    ;;can-i-eat in explore or flee-explore-or-rest
+
+    [ ifelse color = red ;; if not neutral, and they are in a state of panic
+      [ flee-in-danger ]  ;; then the ants will be in danger mode
+      [ nest-checker ] ] ;; if the ants are neither neutral nor in danger, they will return to the nest
+
+      wiggle
+      fd 1
 end
 
 to explore
@@ -138,10 +278,68 @@ to explore
     ]
 end
 
-to wiggle  ;; turtle procedure
-  rt random 40
-  lt random 40
-  if not can-move? 1 [ rt 180 ]
+;;;;;;;;;;;;;;;;;;;;;;;
+;;; Food procedures ;;;
+;;;;;;;;;;;;;;;;;;;;;;;
+
+to can-i-eat
+  if nest?
+  [ ifelse energy < 200
+    [ if nestfood > 0
+      [ set nestfood nestfood - 1
+        set energy energy + EnergyperFood]]
+    [ explore ]]
+end
+
+to grab-food  ;; turtle procedure
+  set color food-carry-color     ;; pick up food
+    set food food - 1        ;; and reduce the food source
+    rt 180                   ;; and turn around
+    stop
+end
+
+to nest-checker  ;; turtle procedure
+  ifelse nest?
+  [ arrived-at-nest ]
+  [ going-to-nest  ]
+end
+
+to going-to-nest
+   set chemical chemical + food-chemical-strength  ;; drop some chemical
+   uphill-nest-scent
+end
+
+to arrived-at-nest
+  set color turtle-color
+  set nestfood nestfood + 1
+  if turtle-color = blue
+  [ wakeUpForagers ]
+  rt 180
+end
+
+to critical_condition
+  if nestfood > 0 and energy < 200
+    [ set nestfood nestfood - 1
+      set energy energy + EnergyperFood
+    ]
+  if nestfood <= 0 and energy < 200
+    [ wiggle
+      fd 1
+    ]
+end
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Scout procedures ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;
+
+to wakeUpForagers
+  ask patches with [nest? = true];; in-radius 100
+    [ if foragerActive? != true
+      [ set foragerActive? true
+      set secondTicks ticks
+      ] ]
+
 end
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -176,25 +374,6 @@ end
 ;  set color red
 ;end
 
-;;;;;;;;;;;;;;;;;;;;;;;
-;;; Food procedures ;;;
-;;;;;;;;;;;;;;;;;;;;;;;
-
-to return-to-nest  ;; turtle procedure
-  ifelse nest?
-  [ set color yellow
-    rt 180 ]
-  [ set chemical chemical + 60  ;; drop some chemical
-    uphill-nest-scent ]         ;; head toward the greatest value of nest-scent
-end
-
-
-to grab-food  ;; turtle procedure
-  set color orange + 1     ;; pick up food
-    set food food - 1        ;; and reduce the food source
-    rt 180                   ;; and turn around
-    stop
-end
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Sniff procedures ;;;
@@ -258,6 +437,20 @@ to-report chemical-scent-at-angle [angle]
   report [chemical] of p
 end
 
+;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Helper procedures ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to wiggle  ;; turtle procedure
+  rt random 40
+  lt random 40
+  if not can-move? 1 [ rt 180 ]
+  set energy energy - 2
+end
+
+to death ;; turtle procedure
+  if energy < 0 [die]
+end
 
 ; See Info tab for full copyright and license.
 @#$#@#$#@
@@ -314,7 +507,7 @@ diffusion-rate
 diffusion-rate
 0.0
 99.0
-91
+6
 1.0
 1
 NIL
@@ -329,7 +522,7 @@ evaporation-rate
 evaporation-rate
 0.0
 99.0
-99
+13
 1.0
 1
 NIL
@@ -394,9 +587,114 @@ SWITCH
 127
 Danger-pheromone
 Danger-pheromone
-1
+0
 1
 -1000
+
+SLIDER
+822
+137
+994
+170
+number-food
+number-food
+0
+15
+3
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+823
+190
+995
+223
+amount_scouts
+amount_scouts
+0
+200
+50
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+823
+235
+995
+268
+amount_foragers
+amount_foragers
+0
+200
+50
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+825
+305
+997
+338
+StartEnergy
+StartEnergy
+0
+500
+50
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+826
+347
+998
+380
+EnergyperFood
+EnergyperFood
+0
+100
+50
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+827
+393
+999
+426
+Startfood
+Startfood
+0
+200
+50
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+812
+465
+1015
+498
+food-chemical-strength
+food-chemical-strength
+0
+100
+31
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
