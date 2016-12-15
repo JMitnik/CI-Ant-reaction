@@ -15,6 +15,7 @@ patches-own [
   food-source-number   ;; number (1, 2, or 3) to identify the food sources
   foragerActive?       ;; true once the first scout reaches the nest with food, false before
   secondTicks          ;; variable that holds the number of ticks it takes until the first food reaches the nest
+  foragerReturn?       ;; true once the first forager returns, false before
 ]
 
 breed [scouts scout]
@@ -184,6 +185,8 @@ to go  ;; forever button
   let forager-parameters nest-forager-activity
   turtles-per-tick forager-parameters
   chemicals-per-tick
+  ask turtles
+  [ can-i-eat ]
   tick
 end
 
@@ -194,11 +197,9 @@ end
 to turtles-per-tick [forager-parameters]
   scouts-per-tick
   foragers-per-tick forager-parameters
-
   ask turtles
   [ set energy energy - 1
-    death
-;    critical_condition]
+    critical-condition
   ]
 end
 
@@ -211,7 +212,7 @@ end
 
 to foragers-per-tick [forager-parameters]
 ;  print item 0 forager-parameters
-  if (item 0 forager-parameters) = true
+  if (item 0 forager-parameters) = true ; and (item 2 forager-parameters) = false
   [ ask foragers
     [ if who + ( item 1 forager-parameters - amount_scouts ) >= ticks [ stop ] ;; delay initial departure
       flee-explore-or-nest
@@ -235,13 +236,21 @@ end
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 to-report nest-forager-activity
+    let forager-return false
     let forager-active false
     let second-ticks 0
-     ask patches with [nest?] [
-       if foragerActive? = true
+    ask patches with [nest?] [
+       ifelse foragerActive? = true
        [ set forager-active true
-         set second-ticks secondTicks
-       ] ]
+         set second-ticks secondTicks ]
+       [ set forager-active false ]
+
+;       ifelse foragerReturn? = true
+ ;      [ set forager-return false ]
+  ;     [ set forager-return true ]
+    ]
+
+
     let result list (forager-active) (second-ticks)
     set result list (forager-active) (second-ticks)
     report result
@@ -261,8 +270,9 @@ to flee-explore-or-nest
       [ flee-in-danger ]  ;; then the ants will be in danger mode
       [ nest-checker ] ] ;; if the ants are neither neutral nor in danger, they will return to the nest
 
-      wiggle
-      fd 1
+    wiggle
+    fd 1
+
 end
 
 to explore
@@ -284,11 +294,14 @@ end
 ;;;;;;;;;;;;;;;;;;;;;;;
 
 to can-i-eat
-  ifelse energy < 200
+  if nest? = true
+  [  ifelse energy < hunger_threshold
     [ if nestfood > 0
-      [ set nestfood nestfood - 1
+      [ set foragerActive? true
+        set nestfood nestfood - 1
         set energy energy + EnergyperFood]]
-    [ explore ]
+  [ explore ]
+  ]
 end
 
 to grab-food  ;; turtle procedure
@@ -312,21 +325,15 @@ end
 to arrived-at-nest
   set color turtle-color
   set nestfood nestfood + 1
-  can-i-eat
   if turtle-color = blue
-  [ wakeUpForagers ]
-  rt 180
-end
+  [ wakeUpForagers
+      rt 180]
+  if turtle-color = green
+  [ setxy 0 0
+    set foragerReturn? true
+  ]
 
-to critical_condition
-  if nestfood > 0 and energy < 200
-    [ set nestfood nestfood - 1
-      set energy energy + EnergyperFood
-    ]
-  if nestfood <= 0 and energy < 200
-    [ wiggle
-      fd 1
-    ]
+
 end
 
 
@@ -443,14 +450,26 @@ end
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
 to wiggle  ;; turtle procedure
-  rt random 40
-  lt random 40
+  ifelse color = blue
+  [ rt random 40
+    lt random 40 ]
+  [ rt random 2
+    lt random 2 ]
   if not can-move? 1 [ rt 180 ]
   set energy energy - 1
 end
 
-to death ;; turtle procedure
-  if energy < 0 [die]
+
+
+to critical-condition ;; turtle procedure
+  if energy <= 0
+  [ ifelse color = food-carry-color
+    [ set color turtle-color
+      set energy energy + EnergyperFood
+      explore
+    ]
+    [die]
+  ]
 end
 
 ; See Info tab for full copyright and license.
@@ -508,7 +527,7 @@ diffusion-rate
 diffusion-rate
 0.0
 99.0
-6
+91
 1.0
 1
 NIL
@@ -523,17 +542,17 @@ evaporation-rate
 evaporation-rate
 0.0
 99.0
-13
+6
 1.0
 1
 NIL
 HORIZONTAL
 
 BUTTON
-136
-71
-211
-104
+137
+70
+212
+103
 NIL
 go
 T
@@ -545,21 +564,6 @@ NIL
 NIL
 NIL
 0
-
-SLIDER
-31
-36
-221
-69
-population
-population
-0.0
-400.0
-400
-1.0
-1
-NIL
-HORIZONTAL
 
 PLOT
 5
@@ -616,7 +620,7 @@ amount_scouts
 amount_scouts
 0
 200
-50
+24
 1
 1
 NIL
@@ -631,7 +635,7 @@ amount_foragers
 amount_foragers
 0
 200
-50
+24
 1
 1
 NIL
@@ -645,8 +649,8 @@ SLIDER
 StartEnergy
 StartEnergy
 0
-500
-500
+800
+601
 1
 1
 NIL
@@ -660,23 +664,8 @@ SLIDER
 EnergyperFood
 EnergyperFood
 0
-300
-300
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-827
-393
-999
-426
-Startfood
-Startfood
-0
-200
-113
+800
+800
 1
 1
 NIL
@@ -691,7 +680,74 @@ food-chemical-strength
 food-chemical-strength
 0
 100
-31
+45
+1
+1
+NIL
+HORIZONTAL
+
+PLOT
+1054
+32
+1254
+182
+Population Ants
+Amount of Ants
+Time
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot count foragers"
+"pen-1" 1.0 0 -7500403 true "" "plot count scouts"
+
+SLIDER
+827
+408
+999
+441
+Startfood
+Startfood
+0
+800
+494
+1
+1
+NIL
+HORIZONTAL
+
+PLOT
+1058
+229
+1258
+379
+Nestfood
+food
+time
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plotxy ticks sum [nestfood] of patches with [pcolor = violet\n]"
+
+SLIDER
+821
+524
+993
+557
+hunger_threshold
+hunger_threshold
+200
+600
+396
 1
 1
 NIL
