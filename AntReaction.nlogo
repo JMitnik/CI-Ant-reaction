@@ -182,6 +182,8 @@ end
 ;;;;;;;;;;;;;;;;;;;;;
 
 to go  ;; forever button
+  if count turtles < 1
+  [stop]
   let forager-parameters nest-forager-activity
   turtles-per-tick forager-parameters
   chemicals-per-tick
@@ -306,15 +308,18 @@ end
 ;;;;;;;;;;;;;;;;;;;;;;;
 
 to can-i-eat
-  if energy < hunger_threshold
-    [ if nestfood > 0
-      [ set foragerActive? true
-        set nestfood nestfood - 1
-        set energy energy + EnergyperFood]]
+  let foodsource sum[nestfood] of patches in-radius nest-size with [nest?]
+
+  if (energy < hunger_threshold) and (foodsource > 0)
+  [eat foodsource]
 end
 
-to rest
-  stop
+to eat [foodsource]
+
+  set foragerActive? true
+  ask one-of patches in-radius nest-size with [nest?]
+  [set nestfood nestfood - 1]
+  set energy energy + EnergyperFood
 end
 
 to grab-food  ;; turtle procedure
@@ -360,7 +365,6 @@ end
 
 to rest
   can-i-eat
-  print "lmao"
 end
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Scout procedures ;;;
@@ -401,12 +405,6 @@ to danger-chemical-encounter
 ;  set color red
 end
 
-;to enemy-encounter
-;  set danger-chemical-ant 400
-;  rt 180
-;  set color red
-;end
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Sniff procedures ;;;
@@ -430,8 +428,7 @@ to-report detect-chemical-presence
   let scent-right chemical-scent-at-angle  45
   let scent-left  chemical-scent-at-angle -45
 
-  let scent-threshold 0.1
-  ifelse (scent-right > scent-threshold) or (scent-ahead > scent-threshold) or (scent-left > scent-threshold)
+  ifelse (scent-right > chemical-scent-threshold) or (scent-ahead > chemical-scent-threshold) or (scent-left > chemical-scent-threshold)
   [ report true ]
   [ report false ]
 end
@@ -564,7 +561,7 @@ diffusion-rate
 diffusion-rate
 0.0
 99.0
-91
+99
 1.0
 1
 NIL
@@ -642,7 +639,7 @@ number-food
 number-food
 0
 15
-3
+1
 1
 1
 NIL
@@ -687,7 +684,7 @@ StartEnergy
 StartEnergy
 0
 800
-601
+602
 1
 1
 NIL
@@ -751,7 +748,7 @@ Startfood
 Startfood
 0
 800
-494
+194
 1
 1
 NIL
@@ -763,8 +760,8 @@ PLOT
 1258
 379
 Nestfood
-food
 time
+food
 0.0
 10.0
 0.0
@@ -785,6 +782,36 @@ hunger_threshold
 200
 600
 396
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+807
+41
+1025
+74
+chemical-scent-threshold
+chemical-scent-threshold
+0
+1
+0.3
+0.1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+862
+292
+1034
+325
+nest-size
+nest-size
+1
+10
+10
 1
 1
 NIL
