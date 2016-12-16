@@ -123,14 +123,13 @@ to setup-food  ;; patch procedure
   [
     let fsn food-source-number
     let fds food
-    ask patches in-radius 2 [
+    let food-size random (max-food-size - min-food-size) + min-food-size
+    ask patches in-radius food-size [
           set food? true
           set food fds
           set food-source-number fsn
      ]
   ]
-;  if food-source-number > 0
-;  [ set food one-of [1 2] ]
 end
 
 to recolor-patch  ;; patch procedure
@@ -138,7 +137,7 @@ to recolor-patch  ;; patch procedure
   ifelse nest?
   [ set pcolor violet ]
   [ ifelse food > 0
-     [ set pcolor blue ]
+     [ set pcolor blue]
     [ifelse danger? != 0
       [set pcolor red]
       [color-chemicals]
@@ -272,7 +271,7 @@ end
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 to can-i-explore
-  ifelse (nest? and detect-chemical-presence = false)
+  ifelse (nest? and detect-chemical-presence = false and energy > hunger-threshold)
   [ rest ]
   [ explore ]
 
@@ -319,7 +318,7 @@ end
 to can-i-eat
   let foodsource sum[nestfood] of patches in-radius nest-size with [nest?]
 
-  if (energy < hunger_threshold) and (foodsource > 0)
+  if (energy < hunger-threshold) and (foodsource > 0)
   [eat foodsource]
 end
 
@@ -648,7 +647,7 @@ number-food
 number-food
 0
 15
-3
+2
 1
 1
 NIL
@@ -723,7 +722,7 @@ food-chemical-strength
 food-chemical-strength
 0
 100
-21
+46
 1
 1
 NIL
@@ -786,8 +785,8 @@ SLIDER
 524
 993
 557
-hunger_threshold
-hunger_threshold
+hunger-threshold
+hunger-threshold
 200
 600
 396
@@ -805,7 +804,7 @@ chemical-scent-threshold
 chemical-scent-threshold
 0
 1
-0.3
+0.1
 0.1
 1
 NIL
@@ -821,6 +820,36 @@ nest-size
 1
 10
 1
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+1075
+426
+1247
+459
+min-food-size
+min-food-size
+0
+10
+2
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+1112
+484
+1284
+517
+max-food-size
+max-food-size
+0
+10
+6
 1
 1
 NIL
