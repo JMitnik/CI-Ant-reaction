@@ -206,16 +206,20 @@ end
 to scouts-per-tick
   ask scouts
   [ if who >= ticks [ stop ]
-     flee-explore-or-nest
+     explore
   ]
 end
 
 to foragers-per-tick [forager-parameters]
 ;  print item 0 forager-parameters
-  if (item 0 forager-parameters) = true ; and (item 2 forager-parameters) = false
+  if (item 0 forager-parameters) = true ; maybe replace this with if the foragers can smell the chemical?
   [ ask foragers
     [ if who + ( item 1 forager-parameters - amount_scouts ) >= ticks [ stop ] ;; delay initial departure
-      flee-explore-or-nest
+
+    ifelse(detect-chemical-presence)
+    [can-i-explore]
+    [ print "lmao no"
+      return-to-nest]
     ] ]
 end
 
@@ -260,33 +264,42 @@ end
 ;;; Slice-of-life procedures ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-to flee-explore-or-nest
+to can-i-explore
+  ifelse (nest? and detect-chemical-presence = false)
+  [ rest ]
+  [ explore ]
+
+end
+
+to explore
   ifelse color = turtle-color
-    [ explore  ] ;; if color of ants is neutral, they walk around and explore
+    [ look-for-food  ] ;; if color of ants is neutral, they walk around and explore
 
     ;;can-i-eat in explore or flee-explore-or-rest
 
     [ ifelse color = red ;; if not neutral, and they are in a state of panic
       [ flee-in-danger ]  ;; then the ants will be in danger mode
-      [ nest-checker ] ] ;; if the ants are neither neutral nor in danger, they will return to the nest
-
-    wiggle
-    fd 1
-
+      [ return-to-nest ] ] ;; if the ants are neither neutral nor in danger, they will return to the nest
+  move
 end
 
-to explore
-  if food > 0 ;; if the ants stumble on a patch of food
-    [grab-food] ;; grab food (FORMER: look-for-food)
-  if danger? = true ;;if the ants encounter an enemy
-     [enemy-encounter] ;;flee the
-  if danger-chemical > 1
-     [danger-chemical-encounter]
-  ifelse (chemical >= 0.05) and (chemical < 2)
+to move
+  wiggle
+  fd 1
+end
+
+to look-for-food
+  ifelse food > 0 ;; if the ants stumble on a patch of food
+    [grab-food] ;; grab food
+  [ifelse danger? = true ;;if the ants encounter an enemy
+     [enemy-encounter] ;;flee or fight the enemy
+  [ifelse danger-chemical > 1 ;; if the ants encounter spores of enemy
+     [danger-chemical-encounter] ;;
+  [ifelse (chemical >= 0.05) and (chemical < 2)
   [ uphill-chemical ]
   [if danger-pheromone = true and danger-chemical >= 0.05 and (danger-chemical < 50)
     [downhill-danger-chemical]
-    ]
+    ] ] ] ]
 end
 
 ;;;;;;;;;;;;;;;;;;;;;;;
@@ -294,14 +307,15 @@ end
 ;;;;;;;;;;;;;;;;;;;;;;;
 
 to can-i-eat
-  if nest? = true
-  [  ifelse energy < hunger_threshold
+  if energy < hunger_threshold
     [ if nestfood > 0
       [ set foragerActive? true
         set nestfood nestfood - 1
         set energy energy + EnergyperFood]]
-  [ explore ]
-  ]
+end
+
+to rest
+  stop
 end
 
 to grab-food  ;; turtle procedure
@@ -311,32 +325,43 @@ to grab-food  ;; turtle procedure
     stop
 end
 
-to nest-checker  ;; turtle procedure
+to return-to-nest  ;; turtle procedure
   ifelse nest?
   [ arrived-at-nest ]
   [ going-to-nest  ]
 end
 
 to going-to-nest
-   set chemical chemical + food-chemical-strength  ;; drop some chemical
+   if color = food-carry-color
+   [set chemical chemical + food-chemical-strength]  ;; drop some chemical
    uphill-nest-scent
 end
 
 to arrived-at-nest
   set color turtle-color
   set nestfood nestfood + 1
+  can-i-eat
+  scouts-arrived-at-nest
+  foragers-arrived-at-nest
+end
+
+to scouts-arrived-at-nest
   if turtle-color = blue
   [ wakeUpForagers
       rt 180]
-  if turtle-color = green
-  [ setxy 0 0
-    set foragerReturn? true
-  ]
-
-
 end
 
+to foragers-arrived-at-nest
+  if turtle-color = green
+  [
 
+    ;set foragerReturn? true
+  ]
+end
+
+to go-rest
+  print "lmao"
+end
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Scout procedures ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;
@@ -387,6 +412,7 @@ end
 ;;; Sniff procedures ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;
 
+
 to downhill-danger-chemical
   let scent-ahead danger-chemical-at-angle   0
   let scent-right danger-chemical-at-angle  45
@@ -397,6 +423,17 @@ to downhill-danger-chemical
        ]
     [ rt 45
       ] ]
+end
+
+to-report detect-chemical-presence
+  let scent-ahead chemical-scent-at-angle   0
+  let scent-right chemical-scent-at-angle  45
+  let scent-left  chemical-scent-at-angle -45
+
+  let scent-threshold 0.1
+  ifelse (scent-right > scent-threshold) or (scent-ahead > scent-threshold) or (scent-left > scent-threshold)
+  [ report true ]
+  [ report false ]
 end
 
 ;;When looking for food, sniffs chemical, and rotate towards the strongest smell
@@ -466,7 +503,7 @@ to critical-condition ;; turtle procedure
   [ ifelse color = food-carry-color
     [ set color turtle-color
       set energy energy + EnergyperFood
-      explore
+      look-for-food
     ]
     [die]
   ]
@@ -592,7 +629,7 @@ SWITCH
 127
 Danger-pheromone
 Danger-pheromone
-0
+1
 1
 -1000
 
@@ -635,7 +672,7 @@ amount_foragers
 amount_foragers
 0
 200
-24
+41
 1
 1
 NIL
