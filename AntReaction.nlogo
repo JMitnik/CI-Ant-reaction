@@ -8,6 +8,7 @@ patches-own [
   danger-chemical      ;; amount of danger pheromones left by ants
   danger?              ;; true on dangerous patches, false elsewhere
   food?                ;; true if center-patch has food
+  food-center?
   food                 ;; amount of food on this patch (0, 1, or 2)
   nest?                ;; true on nest patches, false elsewhere
   nestfood             ;; food in the nest
@@ -42,6 +43,7 @@ foragers-own [
 
 to setup
   clear-all
+  pre-init-food
   setup-scouts
   setup-foragers
   setup-patches
@@ -76,25 +78,30 @@ to setup-patches
     recolor-patch ]
 end
 
-;to pre-init-food
-;  let i  1
-;  while [i < number-food] [
-;      let xcoor random-pxcor
-;      let ycoor random-pycor
-;
-;      ask patch xcoor ycoor
-;      [
-;        set food? true
-;        set food one-of [1 2]
-;        set food-source-number i
-;      ]
-;
-;      ;;in patches
-;
-;      ;;
-;      set i (i + 1)
-;      ]
-;end
+to pre-init-food
+  let i  1
+  while [i < number-food + 1] [
+      set i i + 1
+
+      print i
+
+      let xcoor random-pxcor
+      let ycoor random-pycor
+
+      ask patch xcoor ycoor
+      [
+        print xcoor
+        set food-center? true
+        set food one-of [1 2]
+        set food-source-number i
+      ]
+
+      ;in patches
+
+      ;
+
+      ]
+end
 
 to setup-nest  ;; patch procedure
   ;; set nest? variable to true inside the nest, false elsewhere
@@ -110,61 +117,63 @@ end
 ;; Experimental ;;
 ;;;;;;;;;;;;;;;;;;
 
-;to setup-food  ;; patch procedure
-;  if food? = true
-;  [
-;    let fsn food-source-number
-;    ask patches in-radius 2 [
-;          set food? true
-;          set food-source-number fsn
-;          set food one-of [1 2]
-;     ]
-;  ]
+to setup-food  ;; patch procedure
+
+  if food-center? = true
+  [
+    let fsn food-source-number
+    let fds food
+    ask patches in-radius 2 [
+          set food? true
+          set food fds
+          set food-source-number fsn
+     ]
+  ]
 ;  if food-source-number > 0
 ;  [ set food one-of [1 2] ]
-;end
-
-;to recolor-patch  ;; patch procedure
-;  ;; give color to nest and food sources
-;  ifelse nest?
-;  [ set pcolor violet ]
-;  [ ifelse food > 0
-;     [ set pcolor blue ]
-;    [ifelse danger? != 0
-;      [set pcolor red]
-;      [color-chemicals]
-;    ]
-;  ]
-;end
-
-to setup-food  ;; patch procedure
-  ;; setup food source one on the right
-  if (distancexy (0.6 * max-pxcor) 0) < 5
-  [ set food-source-number 1 ]
-  ;; setup food source two on the lower-left
-  if (distancexy (-0.6 * max-pxcor) (-0.6 * max-pycor)) < 5
-  [ set food-source-number 2 ]
-  ;; setup food source three on the upper-left
-  if (distancexy (-0.8 * max-pxcor) (0.8 * max-pycor)) < 5
-  [ set food-source-number 3 ]
-  ;; set "food" at sources to either 1 or 2, randomly
-  if food-source-number > 0
-  [ set food one-of [1 2] ]
 end
 
-to recolor-patch
+to recolor-patch  ;; patch procedure
+  ; give color to nest and food sources
   ifelse nest?
   [ set pcolor violet ]
   [ ifelse food > 0
-    [ if food-source-number = 1 [ set pcolor cyan ]
-      if food-source-number = 2 [ set pcolor sky  ]
-      if food-source-number = 3 [ set pcolor blue ] ]
+     [ set pcolor blue ]
     [ifelse danger? != 0
       [set pcolor red]
       [color-chemicals]
     ]
   ]
 end
+
+;to setup-food  ;; patch procedure
+;  ;; setup food source one on the right
+;  if (distancexy (0.6 * max-pxcor) 0) < 5
+;  [ set food-source-number 1 ]
+;  ;; setup food source two on the lower-left
+;  if (distancexy (-0.6 * max-pxcor) (-0.6 * max-pycor)) < 5
+;  [ set food-source-number 2 ]
+;  ;; setup food source three on the upper-left
+;  if (distancexy (-0.8 * max-pxcor) (0.8 * max-pycor)) < 5
+;  [ set food-source-number 3 ]
+;  ;; set "food" at sources to either 1 or 2, randomly
+;  if food-source-number > 0
+;  [ set food one-of [1 2] ]
+;end
+
+;to recolor-patch
+;  ifelse nest?
+;  [ set pcolor violet ]
+;  [ ifelse food > 0
+;    [ if food-source-number = 1 [ set pcolor cyan ]
+;      if food-source-number = 2 [ set pcolor sky  ]
+;      if food-source-number = 3 [ set pcolor blue ] ]
+;    [ifelse danger? != 0
+;      [set pcolor red]
+;      [color-chemicals]
+;    ]
+;  ]
+;end
 
 to color-chemicals ;; scale color to show chemical concentration
   ifelse chemical > danger-chemical
@@ -561,7 +570,7 @@ diffusion-rate
 diffusion-rate
 0.0
 99.0
-99
+43
 1.0
 1
 NIL
@@ -639,7 +648,7 @@ number-food
 number-food
 0
 15
-1
+3
 1
 1
 NIL
@@ -714,7 +723,7 @@ food-chemical-strength
 food-chemical-strength
 0
 100
-45
+21
 1
 1
 NIL
@@ -811,7 +820,7 @@ nest-size
 nest-size
 1
 10
-10
+1
 1
 1
 NIL
