@@ -215,11 +215,7 @@ to foragers-per-tick [forager-parameters]
   if (item 0 forager-parameters) = true ; maybe replace this with if the foragers can smell the chemical?
   [ ask foragers
     [ if who + ( item 1 forager-parameters - amount_scouts ) >= ticks [ stop ] ;; delay initial departure
-
-    ifelse(detect-chemical-presence)
-    [can-i-explore]
-    [ print "lmao no"
-      return-to-nest]
+      can-i-explore
     ] ]
 end
 
@@ -274,13 +270,16 @@ end
 to explore
   ifelse color = turtle-color
     [ look-for-food  ] ;; if color of ants is neutral, they walk around and explore
+    [ decide-plan ]
 
-    ;;can-i-eat in explore or flee-explore-or-rest
-
-    [ ifelse color = red ;; if not neutral, and they are in a state of panic
-      [ flee-in-danger ]  ;; then the ants will be in danger mode
-      [ return-to-nest ] ] ;; if the ants are neither neutral nor in danger, they will return to the nest
   move
+end
+
+;;so they are not looking for food, they must be wanting to do something else: what state are they thus in?
+to decide-plan
+  ifelse color = red ;; if not neutral, and they are in a state of panic
+      [ flee-in-danger ]  ;; then the ants will be in danger mode
+      [ return-to-nest ] ;; if the ants are neither neutral nor in danger, they will return to the nest
 end
 
 to move
@@ -359,7 +358,8 @@ to foragers-arrived-at-nest
   ]
 end
 
-to go-rest
+to rest
+  can-i-eat
   print "lmao"
 end
 ;;;;;;;;;;;;;;;;;;;;;;;;
@@ -487,11 +487,11 @@ end
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
 to wiggle  ;; turtle procedure
-  ifelse color = blue
-  [ rt random 40
-    lt random 40 ]
-  [ rt random 2
-    lt random 2 ]
+;  ifelse color = blue
+   rt random 40
+   lt random 40
+;  [ rt random 2
+;    lt random 2 ]
   if not can-move? 1 [ rt 180 ]
   set energy energy - 1
 end
