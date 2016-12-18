@@ -17,6 +17,7 @@ patches-own [
   foragerActive?       ;; true once the first scout reaches the nest with food, false before
   secondTicks          ;; variable that holds the number of ticks it takes until the first food reaches the nest
   foragerReturn?       ;; true once the first forager returns, false before
+  health
 ]
 
 breed [scouts scout]
@@ -145,35 +146,6 @@ to recolor-patch  ;; patch procedure
   ]
 end
 
-;to setup-food  ;; patch procedure
-;  ;; setup food source one on the right
-;  if (distancexy (0.6 * max-pxcor) 0) < 5
-;  [ set food-source-number 1 ]
-;  ;; setup food source two on the lower-left
-;  if (distancexy (-0.6 * max-pxcor) (-0.6 * max-pycor)) < 5
-;  [ set food-source-number 2 ]
-;  ;; setup food source three on the upper-left
-;  if (distancexy (-0.8 * max-pxcor) (0.8 * max-pycor)) < 5
-;  [ set food-source-number 3 ]
-;  ;; set "food" at sources to either 1 or 2, randomly
-;  if food-source-number > 0
-;  [ set food one-of [1 2] ]
-;end
-
-;to recolor-patch
-;  ifelse nest?
-;  [ set pcolor violet ]
-;  [ ifelse food > 0
-;    [ if food-source-number = 1 [ set pcolor cyan ]
-;      if food-source-number = 2 [ set pcolor sky  ]
-;      if food-source-number = 3 [ set pcolor blue ] ]
-;    [ifelse danger? != 0
-;      [set pcolor red]
-;      [color-chemicals]
-;    ]
-;  ]
-;end
-
 to color-chemicals ;; scale color to show chemical concentration
   ifelse chemical > danger-chemical
     [set pcolor scale-color green ((chemical) - (danger-chemical)) 0.1 5]
@@ -221,11 +193,10 @@ to scouts-per-tick
 end
 
 to foragers-per-tick [forager-parameters]
-;  print item 0 forager-parameters
   if (item 0 forager-parameters) = true ; maybe replace this with if the foragers can smell the chemical?
   [ ask foragers
     [ if who + ( item 1 forager-parameters - amount_scouts ) >= ticks [ stop ] ;; delay initial departure
-      can-i-explore
+      check-in-with-foragers
     ] ]
 end
 
@@ -236,10 +207,9 @@ to chemicals-per-tick
 
   ask patches
   [ set chemical chemical * (100 - evaporation-rate) / 100  ;; slowly evaporate chemical
-    set danger-chemical danger-chemical * (evaporation-rate) / 100
+    set danger-chemical danger-chemical * ((100 - evaporation-rate) + evaporation-rate / 1.5 ) / 100
     recolor-patch ]
 end
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Activity procedure ;;;
@@ -270,18 +240,11 @@ end
 ;;; Slice-of-life procedures ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-to can-i-explore
-  ifelse (nest? and detect-chemical-presence = false and energy > hunger-threshold)
-  [ rest ]
-  [ explore ]
-
-end
 
 to explore
   ifelse color = turtle-color
     [ look-for-food  ] ;; if color of ants is neutral, they walk around and explore
     [ decide-plan ]
-
   move
 end
 
@@ -302,13 +265,11 @@ to look-for-food
     [grab-food] ;; grab food
   [ifelse danger? = true ;;if the ants encounter an enemy
      [enemy-encounter] ;;flee or fight the enemy
-  [ifelse danger-chemical > 1 ;; if the ants encounter spores of enemy
+  [ifelse danger-chemical > chemical-scent-threshold ;; if the ants encounter spores of enemy
      [danger-chemical-encounter] ;;
-  [ifelse (chemical >= 0.05) and (chemical < 2)
+  [if (chemical >= 0.05) and (chemical < 2)
   [ uphill-chemical ]
-  [if danger-pheromone = true and danger-chemical >= 0.05 and (danger-chemical < 50)
-    [downhill-danger-chemical]
-    ] ] ] ]
+   ] ] ]
 end
 
 ;;;;;;;;;;;;;;;;;;;;;;;
@@ -384,6 +345,56 @@ to wakeUpForagers
       [ set foragerActive? true
       set secondTicks ticks
       ] ]
+end
+
+to scout-in-danger-chemical
+  downhill-danger-chemical
+  set danger-chemical danger-chemical + 1
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Forager procedures ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to check-in-with-foragers
+  ifelse(energy < hunger-threshold)
+  [ food-or-enemy ]
+  [ can-i-explore ]
+end
+
+to can-i-explore
+  ifelse (nest? and detect-chemical-presence = false)
+  [ rest ]
+  [ explore ]
+end
+
+to forager-in-danger-chemical
+  ifelse(energy < hunger-threshold)
+  [ uphill-danger-chemical ]
+  [ downhill-danger-chemical]
+end
+
+to food-or-enemy
+  let danger-compare get-strongest-danger-chemical
+  let food-compare get-strongest-food-chemical
+
+  ifelse food > 0 ;; if the ants stumble on a patch of food
+    [grab-food] ;; grab food
+  [ifelse danger? = true ;;if the ants encounter an enemy
+     [enemy-encounter] ;;flee or fight the enemy
+  [ifelse danger-chemical > chemical-scent-threshold ;; if the ants encounter spores of enemy
+     [danger-chemical-encounter] ;;
+  [if (chemical >= 0.05) and (chemical < 2)
+  [ uphill-chemical ]
+   ] ] ]
+
+
+
+  ifelse(food-compare > danger-compare)
+  [ uphill-danger-chemical ]
+  [ uphill-danger-chemical ]
+
+  move
 
 end
 
@@ -393,9 +404,8 @@ end
 
 to enemy-encounter
   let xcoor xcor
-  let ycoor ycor
-  ask patches in-radius 10 [
-    set danger-chemical 10 - distancexy xcoor ycoor
+  let ycoor ycor ask patches in-radius 10
+[     set danger-chemical 10 - distancexy xcoor ycoor
   ]
   die
 end
@@ -408,16 +418,47 @@ to flee-in-danger ;; turtle procedure
 end
 
 to danger-chemical-encounter
-;  set danger-chemical-ant danger-chemical
-;  rt 180
-;  set color red
-end
+  if turtle-color = blue
+  [ scout-in-danger-chemical ]
 
+  if turtle-color = green
+  [ forager-in-danger-chemical ]
+end
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Sniff procedures ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;
 
+
+to-report get-strongest-food-chemical
+  let scent-ahead chemical-scent-at-angle   0
+  let scent-right chemical-scent-at-angle  45
+  let scent-left  chemical-scent-at-angle -45
+
+  ifelse (scent-ahead > scent-right) or (scent-ahead > scent-left)
+  [ ifelse scent-right > scent-left
+    [ report scent-right
+       ]
+    [ report scent-left
+      ]  ]
+  [ report scent-ahead ]
+end
+
+
+
+to-report get-strongest-danger-chemical
+  let scent-ahead danger-chemical-at-angle   0
+  let scent-right danger-chemical-at-angle  45
+  let scent-left  danger-chemical-at-angle -45
+
+  ifelse (scent-ahead > scent-right) or (scent-ahead > scent-left)
+  [ ifelse scent-right > scent-left
+    [ report scent-right
+       ]
+    [ report scent-left
+      ]  ]
+  [ report scent-ahead ]
+end
 
 to downhill-danger-chemical
   let scent-ahead danger-chemical-at-angle   0
@@ -429,6 +470,16 @@ to downhill-danger-chemical
        ]
     [ rt 45
       ] ]
+end
+
+to uphill-danger-chemical  ;; turtle procedure
+  let scent-ahead danger-chemical-at-angle   0
+  let scent-right danger-chemical-at-angle  45
+  let scent-left  danger-chemical-at-angle -45
+  if (scent-right > scent-ahead) or (scent-left > scent-ahead)
+  [ ifelse scent-right > scent-left
+    [ rt 45 ]
+    [ lt 45 ] ]
 end
 
 to-report detect-chemical-presence
@@ -544,10 +595,10 @@ ticks
 30.0
 
 BUTTON
-46
-71
-126
-104
+35
+12
+115
+45
 NIL
 setup
 NIL
@@ -561,25 +612,25 @@ NIL
 1
 
 SLIDER
-31
-106
+35
+188
+225
 221
-139
 diffusion-rate
 diffusion-rate
 0.0
 99.0
-43
+28
 1.0
 1
 NIL
 HORIZONTAL
 
 SLIDER
-31
-141
-221
-174
+37
+225
+227
+258
 evaporation-rate
 evaporation-rate
 0.0
@@ -591,10 +642,10 @@ NIL
 HORIZONTAL
 
 BUTTON
-137
-70
-212
-103
+135
+12
+210
+45
 NIL
 go
 T
@@ -608,10 +659,10 @@ NIL
 0
 
 PLOT
-5
-197
-248
-476
+1054
+413
+1297
+692
 Food in each pile
 time
 food
@@ -627,102 +678,91 @@ PENS
 "food-in-pile2" 1.0 0 -13791810 true "" "plotxy ticks sum [food] of patches with [pcolor = sky]"
 "food-in-pile3" 1.0 0 -13345367 true "" "plotxy ticks sum [food] of patches with [pcolor = blue]"
 
-SWITCH
-817
-94
-997
-127
-Danger-pheromone
-Danger-pheromone
-1
-1
--1000
-
 SLIDER
-822
-137
-994
-170
+37
+342
+232
+376
 number-food
 number-food
 0
 15
-2
+9
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-823
-190
-995
-223
+795
+58
+967
+91
 amount_scouts
 amount_scouts
 0
 200
-24
+11
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-823
-235
-995
-268
+795
+103
+967
+136
 amount_foragers
 amount_foragers
 0
 200
-41
+93
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-825
-305
-997
-338
+40
+570
+238
+604
 StartEnergy
 StartEnergy
 0
 800
-602
+448
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-826
-347
-998
-380
+42
+613
+241
+647
 EnergyperFood
 EnergyperFood
 0
 800
-800
+106
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-812
-465
-1015
-498
+39
+295
+232
+329
 food-chemical-strength
 food-chemical-strength
 0
 100
-46
+34
 1
 1
 NIL
@@ -748,25 +788,25 @@ PENS
 "pen-1" 1.0 0 -7500403 true "" "plot count scouts"
 
 SLIDER
-827
-408
-999
-441
+42
+664
+241
+698
 Startfood
 Startfood
 0
 800
-194
+156
 1
 1
 NIL
 HORIZONTAL
 
 PLOT
-1058
-229
-1258
-379
+1047
+224
+1247
+374
 Nestfood
 time
 food
@@ -781,25 +821,25 @@ PENS
 "default" 1.0 0 -16777216 true "" "plotxy ticks sum [nestfood] of patches with [pcolor = violet\n]"
 
 SLIDER
-821
-524
-993
-557
+39
+122
+236
+156
 hunger-threshold
 hunger-threshold
 200
 600
-396
+200
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-807
-41
-1025
-74
+40
+84
+234
+118
 chemical-scent-threshold
 chemical-scent-threshold
 0
@@ -811,49 +851,99 @@ NIL
 HORIZONTAL
 
 SLIDER
-862
-292
-1034
-325
+38
+518
+233
+552
 nest-size
 nest-size
 1
 10
-1
+5
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-1075
-426
-1247
-459
+37
+387
+230
+421
 min-food-size
 min-food-size
 0
 10
-2
+4
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-1112
-484
-1284
-517
+34
+432
+229
+466
 max-food-size
 max-food-size
 0
 10
-6
+4
 1
 1
 NIL
 HORIZONTAL
+
+TEXTBOX
+85
+63
+273
+86
+Thresholds
+11
+0.0
+1
+
+TEXTBOX
+90
+169
+278
+192
+Chemical rates\n
+11
+0.0
+1
+
+TEXTBOX
+82
+270
+270
+293
+Food variables
+11
+0.0
+1
+
+TEXTBOX
+97
+497
+285
+520
+Nest variables
+11
+0.0
+1
+
+TEXTBOX
+828
+37
+1016
+60
+Colony Ratio setup
+11
+95.0
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
