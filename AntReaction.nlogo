@@ -9,6 +9,7 @@ patches-own [
   danger?              ;; true on dangerous patches, false elsewhere
   food?                ;; true if center-patch has food
   food-center?
+  nest-deposited-food
   food                 ;; amount of food on this patch (0, 1, or 2)
   nest?                ;; true on nest patches, false elsewhere
   nestfood             ;; food in the nest
@@ -18,7 +19,8 @@ patches-own [
   secondTicks          ;; variable that holds the number of ticks it takes until the first food reaches the nest
   foragerReturn?       ;; true once the first forager returns, false before
   health
-  food-discovered
+  food-discovered?
+  food-distance
 ]
 
 breed [scouts scout]
@@ -85,22 +87,19 @@ to pre-init-food
   while [i < number-food + 1] [
       set i i + 1
 
-
       let xcoor random-pxcor
       let ycoor random-pycor
 
       ask patch xcoor ycoor
       [
         print xcoor
-        set food-discovered false
+        set food-discovered? false
         set food-center? true
+        set food-distance abs(distancexy xcoor ycoor - distancexy 0 0)
         set food one-of [1 2]
         set food-source-number i
+        set nest-deposited-food 0
       ]
-
-      ;in patches
-
-      ;
 
       ]
 end
@@ -125,11 +124,14 @@ to setup-food  ;; patch procedure
   [
     let fsn food-source-number
     let fds food
+    let fdist food-distance
     let food-size random (max-food-size - min-food-size) + min-food-size
     ask patches in-radius food-size [
           set food? true
           set food fds
+          set food-distance fdist
           set food-source-number fsn
+          set nest-deposited-food 0
      ]
   ]
 end
@@ -154,8 +156,10 @@ to color-chemicals ;; scale color to show chemical concentration
 end
 
 to setup-danger ;; patch procedure
-  if (distancexy (0.8 * max-pxcor) (0.8 * max-pycor)) < 5
-  [ set danger? true]
+  if danger-enabled
+  [  if (distancexy (0.8 * max-pxcor) (0.8 * max-pycor)) < 5
+  [ set danger? true]]
+
 end
 
 ;;;;;;;;;;;;;;;;;;;;;
@@ -291,7 +295,6 @@ to can-i-eat
 end
 
 to eat [foodsource]
-
   set foragerActive? true
   ask one-of patches in-radius nest-size with [nest?]
   [set nestfood nestfood - 1]
@@ -301,6 +304,7 @@ end
 to grab-food  ;; turtle procedure
   set color food-carry-color     ;; pick up food
     set food food - 1        ;; and reduce the food source
+    set food-discovered? true
     rt 180                   ;; and turn around
     stop
 end
@@ -320,6 +324,7 @@ end
 to arrived-at-nest
   set color turtle-color
   set nestfood nestfood + 1
+  set nest-deposited-food nest-deposited-food + 1
   can-i-eat
   scouts-arrived-at-nest
   foragers-arrived-at-nest
@@ -388,8 +393,7 @@ to enemy-encounter
   [ scout-in-enemy-encounter ]
 
   if turtle-color = green
-  [
-    forager-in-enemy-encounter ]
+  [ forager-in-enemy-encounter ]
 
 end
 
@@ -397,8 +401,7 @@ to forager-in-enemy-encounter
   let xcoor xcor
   let ycoor ycor ask patches in-radius 10
 
-[     set danger-chemical 10 - distancexy xcoor ycoor
-  ]
+[ set danger-chemical 10 - distancexy xcoor ycoor ]
   let turtlesc count turtles-on patches in-radius (enemy-size + 2) with [danger? = true]
   let companions count turtles-on patches in-radius (3)
 
@@ -714,7 +717,7 @@ amount_scouts
 amount_scouts
 0
 200
-73
+60
 1
 1
 NIL
@@ -729,7 +732,7 @@ amount_foragers
 amount_foragers
 0
 200
-93
+40
 1
 1
 NIL
@@ -744,7 +747,7 @@ StartEnergy
 StartEnergy
 0
 800
-600
+106
 1
 1
 NIL
@@ -759,7 +762,7 @@ EnergyperFood
 EnergyperFood
 0
 800
-600
+156
 1
 1
 NIL
@@ -808,7 +811,7 @@ Startfood
 Startfood
 0
 800
-411
+178
 1
 1
 NIL
@@ -1001,6 +1004,17 @@ soldiers-to-kill
 1
 NIL
 HORIZONTAL
+
+SWITCH
+392
+477
+545
+511
+danger-enabled
+danger-enabled
+1
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -1361,22 +1375,35 @@ NetLogo 5.3.1
 @#$#@#$#@
 @#$#@#$#@
 <experiments>
-  <experiment name="experiment v1" repetitions="100" runMetricsEveryStep="true">
+  <experiment name="Distance-to-food-small map" repetitions="1" runMetricsEveryStep="true">
     <setup>setup</setup>
     <go>go</go>
-    <exitCondition>count turtles = 0</exitCondition>
-    <metric>count turtles</metric>
-    <metric>count foragers</metric>
-    <metric>count scouts</metric>
+    <exitCondition>amount_scouts + amount_foragers != 100</exitCondition>
+    <metric>[ (list food-distance)] of patches with [food? = true and food-center? = true]</metric>
+    <metric>remove-duplicates [ (list food-distance)] of patches with [food-discovered? = true]</metric>
+    <metric>filter [not member? ? [ (list food-distance)] of patches with [food-discovered? = true] ] [ (list food-distance)] of patches with [food? = true and food-center? = true]</metric>
+    <metric>sum([nest-deposited-food]) of patches with [nest? = true]</metric>
+    <metric>count patches with [food-discovered? = true]</metric>
+    <metric>count patches with [food? = true]</metric>
     <enumeratedValueSet variable="max-pxcor">
       <value value="20"/>
-      <value value="40"/>
-      <value value="80"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="max-pycor">
       <value value="20"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="amount_scouts">
+      <value value="20"/>
       <value value="40"/>
+      <value value="60"/>
       <value value="80"/>
+      <value value="100"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="amount_foragers">
+      <value value="20"/>
+      <value value="40"/>
+      <value value="60"/>
+      <value value="80"/>
+      <value value="100"/>
     </enumeratedValueSet>
   </experiment>
 </experiments>
