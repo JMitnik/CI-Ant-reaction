@@ -18,6 +18,7 @@ patches-own [
   secondTicks          ;; variable that holds the number of ticks it takes until the first food reaches the nest
   foragerReturn?       ;; true once the first forager returns, false before
   health
+  food-discovered
 ]
 
 breed [scouts scout]
@@ -84,7 +85,6 @@ to pre-init-food
   while [i < number-food + 1] [
       set i i + 1
 
-      print i
 
       let xcoor random-pxcor
       let ycoor random-pycor
@@ -92,6 +92,7 @@ to pre-init-food
       ask patch xcoor ycoor
       [
         print xcoor
+        set food-discovered false
         set food-center? true
         set food one-of [1 2]
         set food-source-number i
@@ -250,8 +251,7 @@ end
 
 ;;so they are not looking for food, they must be wanting to do something else: what state are they thus in?
 to decide-plan
-  ifelse color = red ;; if not neutral, and they are in a state of panic
-      [ flee-in-danger ]  ;; then the ants will be in danger mode
+  if color = food-carry-color ;; if not neutral, and they are in a state of panic
       [ return-to-nest ] ;; if the ants are neither neutral nor in danger, they will return to the nest
 end
 
@@ -261,15 +261,22 @@ to move
 end
 
 to look-for-food
+  let danger-compare get-strongest-danger-chemical
+  let food-compare get-strongest-food-chemical
+
   ifelse food > 0 ;; if the ants stumble on a patch of food
     [grab-food] ;; grab food
   [ifelse danger? = true ;;if the ants encounter an enemy
      [enemy-encounter] ;;flee or fight the enemy
-  [ifelse danger-chemical > chemical-scent-threshold ;; if the ants encounter spores of enemy
-     [danger-chemical-encounter] ;;
-  [if (chemical >= 0.05) and (chemical < 2)
-  [ uphill-chemical ]
-   ] ] ]
+  [ifelse (chemical >= 0.05) and (chemical < 2) ;; if the ants encounter spores of enemy
+     [
+       if turtle-color = green and count foragers < 5
+       [print "get food"]
+       uphill-chemical]
+  [if (danger-compare > food-compare)
+     [ danger-chemical-encounter ]
+  ]] ]
+
 end
 
 ;;;;;;;;;;;;;;;;;;;;;;;
@@ -327,8 +334,6 @@ end
 to foragers-arrived-at-nest
   if turtle-color = green
   [
-
-    ;set foragerReturn? true
   ]
 end
 
@@ -349,7 +354,6 @@ end
 
 to scout-in-danger-chemical
   downhill-danger-chemical
-  set danger-chemical danger-chemical + 1
 end
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -358,7 +362,7 @@ end
 
 to check-in-with-foragers
   ifelse(energy < hunger-threshold)
-  [ food-or-enemy ]
+  [ explore ]
   [ can-i-explore ]
 end
 
@@ -374,47 +378,55 @@ to forager-in-danger-chemical
   [ downhill-danger-chemical]
 end
 
-to food-or-enemy
-  let danger-compare get-strongest-danger-chemical
-  let food-compare get-strongest-food-chemical
-
-  ifelse food > 0 ;; if the ants stumble on a patch of food
-    [grab-food] ;; grab food
-  [ifelse danger? = true ;;if the ants encounter an enemy
-     [enemy-encounter] ;;flee or fight the enemy
-  [ifelse danger-chemical > chemical-scent-threshold ;; if the ants encounter spores of enemy
-     [danger-chemical-encounter] ;;
-  [if (chemical >= 0.05) and (chemical < 2)
-  [ uphill-chemical ]
-   ] ] ]
-
-
-
-  ifelse(food-compare > danger-compare)
-  [ uphill-danger-chemical ]
-  [ uphill-danger-chemical ]
-
-  move
-
-end
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Danger procedures ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
 to enemy-encounter
+
+  if turtle-color = blue
+  [ scout-in-enemy-encounter ]
+
+  if turtle-color = green
+  [
+    forager-in-enemy-encounter ]
+
+end
+
+to forager-in-enemy-encounter
   let xcoor xcor
   let ycoor ycor ask patches in-radius 10
+
 [     set danger-chemical 10 - distancexy xcoor ycoor
   ]
+  let turtlesc count turtles-on patches in-radius (enemy-size + 2) with [danger? = true]
+  let companions count turtles-on patches in-radius (3)
+
+  if companions >= soldiers-to-kill
+  [ kill-enemy ]
+
   die
 end
 
-to flee-in-danger ;; turtle procedure
-;  ifelse danger-chemical-ant > 3
-;  [set danger-chemical danger-chemical-ant
-;  set danger-chemical-ant danger-chemical-ant - 15]
-;  [set color yellow]
+to kill-enemy
+  print "Death"
+  ask patches in-radius (10 + enemy-size ) with [danger? = true]
+  [turn-enemy-into-food]
+end
+
+to turn-enemy-into-food
+  set danger? false
+  set food? true
+  set food 2
+  recolor-patch
+end
+
+to scout-in-enemy-encounter
+  let xcoor xcor
+  let ycoor ycor ask patches in-radius 10
+[     set danger-chemical danger-chemical-strength  - distancexy xcoor ycoor
+  ]
+  die
 end
 
 to danger-chemical-encounter
@@ -571,9 +583,9 @@ GRAPHICS-WINDOW
 257
 10
 764
-538
-35
-35
+434
+-1
+-1
 7.0
 1
 10
@@ -584,10 +596,10 @@ GRAPHICS-WINDOW
 0
 0
 1
+-50
+20
 -35
-35
--35
-35
+20
 1
 1
 1
@@ -620,7 +632,7 @@ diffusion-rate
 diffusion-rate
 0.0
 99.0
-28
+80
 1.0
 1
 NIL
@@ -635,7 +647,7 @@ evaporation-rate
 evaporation-rate
 0.0
 99.0
-6
+10
 1.0
 1
 NIL
@@ -687,7 +699,7 @@ number-food
 number-food
 0
 15
-9
+2
 1
 1
 NIL
@@ -702,7 +714,7 @@ amount_scouts
 amount_scouts
 0
 200
-11
+73
 1
 1
 NIL
@@ -732,7 +744,7 @@ StartEnergy
 StartEnergy
 0
 800
-448
+600
 1
 1
 NIL
@@ -747,7 +759,7 @@ EnergyperFood
 EnergyperFood
 0
 800
-106
+600
 1
 1
 NIL
@@ -762,7 +774,7 @@ food-chemical-strength
 food-chemical-strength
 0
 100
-34
+50
 1
 1
 NIL
@@ -796,7 +808,7 @@ Startfood
 Startfood
 0
 800
-156
+411
 1
 1
 NIL
@@ -944,6 +956,51 @@ Colony Ratio setup
 11
 95.0
 1
+
+SLIDER
+860
+199
+1033
+233
+enemy-size
+enemy-size
+0
+100
+8
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+377
+587
+596
+621
+danger-chemical-strength
+danger-chemical-strength
+0
+100
+14
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+407
+709
+580
+743
+soldiers-to-kill
+soldiers-to-kill
+0
+10
+3
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -1303,6 +1360,26 @@ NetLogo 5.3.1
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
+<experiments>
+  <experiment name="experiment v1" repetitions="100" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <exitCondition>count turtles = 0</exitCondition>
+    <metric>count turtles</metric>
+    <metric>count foragers</metric>
+    <metric>count scouts</metric>
+    <enumeratedValueSet variable="max-pxcor">
+      <value value="20"/>
+      <value value="40"/>
+      <value value="80"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-pycor">
+      <value value="20"/>
+      <value value="40"/>
+      <value value="80"/>
+    </enumeratedValueSet>
+  </experiment>
+</experiments>
 @#$#@#$#@
 @#$#@#$#@
 default
