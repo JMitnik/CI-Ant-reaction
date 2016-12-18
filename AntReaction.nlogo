@@ -586,7 +586,7 @@ GRAPHICS-WINDOW
 257
 10
 764
-434
+433
 -1
 -1
 7.0
@@ -697,12 +697,12 @@ SLIDER
 37
 342
 232
-376
+375
 number-food
 number-food
 0
 15
-2
+3
 1
 1
 NIL
@@ -717,7 +717,7 @@ amount_scouts
 amount_scouts
 0
 200
-60
+80
 1
 1
 NIL
@@ -732,7 +732,7 @@ amount_foragers
 amount_foragers
 0
 200
-40
+20
 1
 1
 NIL
@@ -742,7 +742,7 @@ SLIDER
 40
 570
 238
-604
+603
 StartEnergy
 StartEnergy
 0
@@ -757,7 +757,7 @@ SLIDER
 42
 613
 241
-647
+646
 EnergyperFood
 EnergyperFood
 0
@@ -772,7 +772,7 @@ SLIDER
 39
 295
 232
-329
+328
 food-chemical-strength
 food-chemical-strength
 0
@@ -806,7 +806,7 @@ SLIDER
 42
 664
 241
-698
+697
 Startfood
 Startfood
 0
@@ -839,7 +839,7 @@ SLIDER
 39
 122
 236
-156
+155
 hunger-threshold
 hunger-threshold
 200
@@ -854,7 +854,7 @@ SLIDER
 40
 84
 234
-118
+117
 chemical-scent-threshold
 chemical-scent-threshold
 0
@@ -869,7 +869,7 @@ SLIDER
 38
 518
 233
-552
+551
 nest-size
 nest-size
 1
@@ -884,7 +884,7 @@ SLIDER
 37
 387
 230
-421
+420
 min-food-size
 min-food-size
 0
@@ -899,7 +899,7 @@ SLIDER
 34
 432
 229
-466
+465
 max-food-size
 max-food-size
 0
@@ -961,10 +961,10 @@ Colony Ratio setup
 1
 
 SLIDER
-860
-199
-1033
-233
+797
+155
+970
+188
 enemy-size
 enemy-size
 0
@@ -979,7 +979,7 @@ SLIDER
 377
 587
 596
-621
+620
 danger-chemical-strength
 danger-chemical-strength
 0
@@ -994,7 +994,7 @@ SLIDER
 407
 709
 580
-743
+742
 soldiers-to-kill
 soldiers-to-kill
 0
@@ -1009,7 +1009,7 @@ SWITCH
 392
 477
 545
-511
+510
 danger-enabled
 danger-enabled
 1
@@ -1404,6 +1404,27 @@ NetLogo 5.3.1
       <value value="60"/>
       <value value="80"/>
       <value value="100"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="food-size" repetitions="1" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <exitCondition>amount_scouts + amount_foragers != 100</exitCondition>
+    <metric>count turtles</metric>
+    <enumeratedValueSet variable="amount_scouts">
+      <value value="20"/>
+      <value value="40"/>
+      <value value="60"/>
+      <value value="80"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="amount_foragers">
+      <value value="20"/>
+      <value value="40"/>
+      <value value="60"/>
+      <value value="80"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="number-food">
+      <value value="3"/>
     </enumeratedValueSet>
   </experiment>
 </experiments>
