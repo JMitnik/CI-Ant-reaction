@@ -293,10 +293,10 @@ end
 ;;;;;;;;;;;;;;;;;;;;;;;
 
 to can-i-eat
-  let foodsource sum[nestfood] of patches in-radius nest-size with [nest?]
+  let foodsource sum[nestfood] of patches in-radius 20 with [nest?]
 
-  if (energy < hunger-threshold) and (foodsource > 0)
-  [ print nestfood
+  if (energy < hunger-threshold) and (foodsource > 0) and (nest? = true)
+  [ print  sum[nestfood] of patches in-radius (20) with [nest?]
     eat foodsource]
 end
 
@@ -372,7 +372,9 @@ end
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 to check-in-with-foragers
-  ifelse(energy < hunger-threshold)
+  let foodsource sum[nestfood] of patches in-radius 20 with [nest?]
+
+  ifelse(energy < hunger-threshold) and (foodsource <= 0)
   [ explore ]
   [ can-i-explore ]
 end
