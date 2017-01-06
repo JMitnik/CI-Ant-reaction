@@ -1,8 +1,9 @@
 
-;;;;;;;;;;;;;;;;;
-;;; Variables ;;;
-;;;;;;;;;;;;;;;;;
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Setup Variables ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 patches-own [
   chemical             ;; amount of chemical on this patch
   danger-chemical      ;; amount of danger pheromones left by ants
@@ -39,6 +40,11 @@ foragers-own [
   energy
   turtle-color
   ]  ;; energy for each forager
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Setup Procedures ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
@@ -162,6 +168,10 @@ to setup-danger ;; patch procedure
 
 end
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Ants Reaction ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 ;;;;;;;;;;;;;;;;;;;;;
 ;;; Go procedures ;;;
 ;;;;;;;;;;;;;;;;;;;;;
@@ -172,8 +182,6 @@ to go  ;; forever button
   let forager-parameters nest-forager-activity
   turtles-per-tick forager-parameters
   chemicals-per-tick
-  ask turtles
-  [ can-i-eat ]
   tick
 end
 
@@ -185,7 +193,8 @@ to turtles-per-tick [forager-parameters]
   scouts-per-tick
   foragers-per-tick forager-parameters
   ask turtles
-  [ set energy energy - 1
+  [ can-i-eat
+    set energy energy - 1
     critical-condition
   ]
 end
@@ -204,7 +213,6 @@ to foragers-per-tick [forager-parameters]
       check-in-with-foragers
     ] ]
 end
-
 
 to chemicals-per-tick
   diffuse chemical (diffusion-rate / 100)
@@ -273,10 +281,7 @@ to look-for-food
   [ifelse danger? = true ;;if the ants encounter an enemy
      [enemy-encounter] ;;flee or fight the enemy
   [ifelse (chemical >= 0.05) and (chemical < 2) ;; if the ants encounter spores of enemy
-     [
-       if turtle-color = green and count foragers < 5
-       [print "get food"]
-       uphill-chemical]
+     [uphill-chemical]
   [if (danger-compare > food-compare)
      [ danger-chemical-encounter ]
   ]] ]
@@ -291,7 +296,8 @@ to can-i-eat
   let foodsource sum[nestfood] of patches in-radius nest-size with [nest?]
 
   if (energy < hunger-threshold) and (foodsource > 0)
-  [eat foodsource]
+  [ print nestfood
+    eat foodsource]
 end
 
 to eat [foodsource]
@@ -325,7 +331,7 @@ to arrived-at-nest
   set color turtle-color
   set nestfood nestfood + 1
   set nest-deposited-food nest-deposited-food + 1
-  can-i-eat
+;  can-i-eat
   scouts-arrived-at-nest
   foragers-arrived-at-nest
 end
@@ -343,7 +349,7 @@ to foragers-arrived-at-nest
 end
 
 to rest
-  can-i-eat
+;  can-i-eat
 end
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Scout procedures ;;;
@@ -558,11 +564,8 @@ end
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
 to wiggle  ;; turtle procedure
-;  ifelse color = blue
    rt random 40
    lt random 40
-;  [ rt random 2
-;    lt random 2 ]
   if not can-move? 1 [ rt 180 ]
   set energy energy - 1
 end
@@ -747,7 +750,7 @@ StartEnergy
 StartEnergy
 0
 800
-106
+599
 1
 1
 NIL
@@ -762,7 +765,7 @@ EnergyperFood
 EnergyperFood
 0
 800
-156
+600
 1
 1
 NIL
@@ -811,7 +814,7 @@ Startfood
 Startfood
 0
 800
-178
+100
 1
 1
 NIL
