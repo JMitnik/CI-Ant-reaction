@@ -1,16 +1,14 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Global Variables ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Setup Variables ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 patches-own [
-  chemical             ;; amount of chemical on this patch
+  chemical             ;; amount of pheromone on this patch
   danger-chemical      ;; amount of danger pheromones left by ants
   danger?              ;; true on dangerous patches, false elsewhere
   food?                ;; true if center-patch has food
-  food-center?
-  nest-deposited-food
+  food-center?         ;; center points of food to distribute food over the board
+  nest-deposited-food  ;; the number of food in the nest itself
   food                 ;; amount of food on this patch (0, 1, or 2)
   nest?                ;; true on nest patches, false elsewhere
   nestfood             ;; food in the nest
@@ -19,67 +17,102 @@ patches-own [
   foragerActive?       ;; true once the first scout reaches the nest with food, false before
   secondTicks          ;; variable that holds the number of ticks it takes until the first food reaches the nest
   foragerReturn?       ;; true once the first forager returns, false before
-  health
-  food-discovered?
-  food-distance
+  food-discovered?     ;; true if a food-source has been discovered
+  food-distance        ;; the amount of distance from a food-source to the nest
+  enemy-food           ;; the baseline for how much food an enemy had dropped there
 ]
 
 breed [scouts scout]
 breed [foragers forager]
 
 turtles-own [
-  food-carry-color     ;;
+  food-carry-color     ;; the color of a turtle when the turtle carries food
   danger-chemical-ant  ;; amount of fear-pheromone present on the current ant
 ]
 
 scouts-own [
-  energy
-  turtle-color
-  ]    ;; energy for each scout
-foragers-own [
-  energy
-  turtle-color
-  ]  ;; energy for each forager
+  energy               ;; the number of health of the turtle
+  turtle-color         ;; turtle-color reflects the color of this race
+]
 
+foragers-own [
+  energy               ;; the number of health of the turtle
+  turtle-color         ;; turtle-color reflects the color of this race
+]
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Setup Procedures ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Setup procedures ;;;
-;;;;;;;;;;;;;;;;;;;;;;;;
-
+;; Global init for the patch-board
+;
 to setup
   clear-all
   pre-init-food
-  setup-scouts
-  setup-foragers
+  setup-turtles
   setup-patches
   reset-ticks
 end
 
+;; Randomly locates a number of positions on the patch-board to place food
+;
+to pre-init-food
+  let i  1
+  while [i < number-food + 1] [
+      set i i + 1
+      let xcoor random-pxcor
+      let ycoor random-pycor
+      ask patch xcoor ycoor
+      [ set food-discovered? false
+        set food-center? true
+        set food-distance abs(distancexy xcoor ycoor - distancexy 0 0)
+        set food one-of [1 2]
+        set food-source-number i
+        set nest-deposited-food 0 ] ]
+end
+
+;;;;;;;;;;;;;;;;;;;;;
+;;; Setup turtles ;;;
+;;;;;;;;;;;;;;;;;;;;;
+
+;; Initializes the setup procedure of the scout and forager races
+;
+to setup-turtles
+  setup-scouts
+  setup-foragers
+end
+
+;; Sets up the basic properties of the scout class
+;
 to setup-scouts
   set-default-shape scouts "bug"
   create-scouts amount_scouts
-  [ set size 2         ;; easier to see
+  [ set size 2
     set food-carry-color yellow
-    set turtle-color blue     ;; red = not carrying food
+    set turtle-color blue
     set color turtle-color
-    set  energy startenergy ]  ;; power level of the ants
+    set energy startenergy ]
 end
 
-to setup-foragers               ;; setup foragers
+;; Sets up basic properties of the forager class
+;
+to setup-foragers
   set-default-shape foragers "bug"
   create-foragers amount_foragers
-  [ set size 2         ;; easier to see
+  [ set size 2
     set food-carry-color yellow
     set turtle-color green
-    set color turtle-color      ;; blue = not carrying food
-    set energy startenergy ]  ;; power level of the ants
+    set color turtle-color
+    set energy startenergy ]
 end
 
+;;;;;;;;;;;;;;;;;;;;;
+;;; Setup patches ;;;
+;;;;;;;;;;;;;;;;;;;;;
+
+;; Initializes the setup procedure of the patches
+;
 to setup-patches
   ask patches
   [ setup-nest
@@ -88,84 +121,57 @@ to setup-patches
     recolor-patch ]
 end
 
-to pre-init-food
-  let i  1
-  while [i < number-food + 1] [
-      set i i + 1
-
-      let xcoor random-pxcor
-      let ycoor random-pycor
-
-      ask patch xcoor ycoor
-      [
-        print xcoor
-        set food-discovered? false
-        set food-center? true
-        set food-distance abs(distancexy xcoor ycoor - distancexy 0 0)
-        set food one-of [1 2]
-        set food-source-number i
-        set nest-deposited-food 0
-      ]
-
-      ]
-end
-
+;; Sets up the nest
+;
 to setup-nest  ;; patch procedure
-  ;; set nest? variable to true inside the nest, false elsewhere
-  set nest? (distancexy 0 0) < 5
-  ;; spread a nest-scent over the whole world -- stronger near the nest
-  set nest-scent 200 - distancexy 0 0
-
+  set nest? (distancexy 0 0) < 5  ;; Sets nest? variable to true inside the nest, false elsewhere
+  set nest-scent 200 - distancexy 0 0 ;; Spreads a nest-pheromone over the whole world -- stronger near the nest
   if distancexy 0 0 < 5
   [set nestfood ( startfood / 75.9 )]
 end
 
-;;;;;;;;;;;;;;;;;;
-;; Experimental ;;
-;;;;;;;;;;;;;;;;;;
-
+;; Sets up the various sources of food throughout the world
+;
 to setup-food  ;; patch procedure
-
   if food-center? = true
-  [
-    let fsn food-source-number
+  [ let fsn food-source-number
     let fds food
     let fdist food-distance
     let food-size random (max-food-size - min-food-size) + min-food-size
-    ask patches in-radius food-size [
-          set food? true
-          set food fds
-          set food-distance fdist
-          set food-source-number fsn
-          set nest-deposited-food 0
-     ]
-  ]
+    ask patches in-radius food-size
+    [ set food? true
+      set food fds
+      set food-distance fdist
+      set food-source-number fsn
+      set nest-deposited-food 0 ] ]
 end
 
+;; Sets up the enemy in a fixed position
+;
+to setup-danger ;; patch procedure
+  if danger-enabled
+  [ if (distancexy (0.8 * max-pxcor) (0.8 * max-pycor)) < 5
+  [ set danger? true] ]
+end
+
+;; Gives the proper color to the different patches
+;
 to recolor-patch  ;; patch procedure
-  ; give color to nest and food sources
   ifelse nest?
   [ set pcolor violet ]
   [ ifelse food > 0
-     [ set pcolor blue]
-    [ifelse danger? != 0
-      [set pcolor red]
-      [color-chemicals]
-    ]
-  ]
+    [ set pcolor blue]
+    [ ifelse danger? != 0
+      [ set pcolor red]
+      [ color-pheromones] ] ]
 end
 
-to color-chemicals ;; scale color to show chemical concentration
+;; Colors the pheromones in degree of which pheromone is stronger on the patch
+;
+to color-pheromones ;; patch procedure
   ifelse chemical > danger-chemical
-    [set pcolor scale-color green ((chemical) - (danger-chemical)) 0.1 5]
-    [set pcolor scale-color red ((danger-chemical) - (chemical)) 0.1 5]
-end
-
-to setup-danger ;; patch procedure
-  if danger-enabled
-  [  if (distancexy (0.8 * max-pxcor) (0.8 * max-pycor)) < 5
-  [ set danger? true]]
-
+    [ set pcolor scale-color green ((chemical) - (danger-chemical)) 0.1 5]
+    [ set pcolor scale-color red ((danger-chemical) - (chemical)) 0.1 5]
 end
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -189,16 +195,21 @@ end
 ;;; Tick procedures ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;
 
+; Input: array[forager-activity: boolean, second-ticks: integer]
+;
+; Initialises the code for each turtle per tick, regardless of class
+;
 to turtles-per-tick [forager-parameters]
   scouts-per-tick
   foragers-per-tick forager-parameters
   ask turtles
   [ can-i-eat
     set energy energy - 1
-    critical-condition
-  ]
+    critical-condition ]
 end
 
+; Initialises the code for the scouts per tick
+;
 to scouts-per-tick
   ask scouts
   [ if who >= ticks [ stop ]
@@ -206,14 +217,23 @@ to scouts-per-tick
   ]
 end
 
+; Input: array[forager-activity: boolean, second-ticks: integer]
+;
+; Initialises the code for each forger per tick, regardless of class,
+; activating the forager only when the foragers have been 'awakened'
+; by the scouts.
+;
 to foragers-per-tick [forager-parameters]
-  if (item 0 forager-parameters) = true ; maybe replace this with if the foragers can smell the chemical?
+  if (item 0 forager-parameters) = true ;
   [ ask foragers
     [ if who + ( item 1 forager-parameters - amount_scouts ) >= ticks [ stop ] ;; delay initial departure
       check-in-with-foragers
     ] ]
 end
 
+; Decreases the strength of the food and dangerpheromones
+; on each patch by the evaporation and diffusion rate
+;
 to chemicals-per-tick
   diffuse chemical (diffusion-rate / 100)
   diffuse danger-chemical (diffusion-rate / 1000)
@@ -228,6 +248,12 @@ end
 ;;; Activity procedure ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+; Checks whether foragers have been awakened by scouts, and if so,
+; announces the tick of which they awoke as the
+; new initial-delay counter.
+;
+; Output: array[forager-activity: boolean, second-ticks: integer]
+;
 to-report nest-forager-activity
     let forager-return false
     let forager-active false
@@ -236,13 +262,7 @@ to-report nest-forager-activity
        ifelse foragerActive? = true
        [ set forager-active true
          set second-ticks secondTicks ]
-       [ set forager-active false ]
-
-;       ifelse foragerReturn? = true
- ;      [ set forager-return false ]
-  ;     [ set forager-return true ]
-    ]
-
+       [ set forager-active false ] ]
 
     let result list (forager-active) (second-ticks)
     set result list (forager-active) (second-ticks)
@@ -252,7 +272,6 @@ end
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Slice-of-life procedures ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 
 to explore
   ifelse color = turtle-color
@@ -420,13 +439,13 @@ to forager-in-enemy-encounter
 end
 
 to kill-enemy
-  print "Death"
-  ask patches in-radius (10 + enemy-size ) with [danger? = true]
+  ask patches in-radius (2 * enemy-size ) with [danger? = true]
   [turn-enemy-into-food]
 end
 
 to turn-enemy-into-food
   set danger? false
+  set enemy-food 2
   set food? true
   set food 2
   recolor-patch
@@ -722,7 +741,7 @@ amount_scouts
 amount_scouts
 0
 200
-80
+24
 1
 1
 NIL
@@ -737,7 +756,7 @@ amount_foragers
 amount_foragers
 0
 200
-20
+82
 1
 1
 NIL
@@ -1017,7 +1036,7 @@ SWITCH
 510
 danger-enabled
 danger-enabled
-1
+0
 1
 -1000
 
