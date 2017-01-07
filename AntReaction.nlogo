@@ -741,7 +741,7 @@ amount_scouts
 amount_scouts
 0
 200
-24
+20
 1
 1
 NIL
@@ -756,7 +756,7 @@ amount_foragers
 amount_foragers
 0
 200
-82
+80
 1
 1
 NIL
@@ -1449,6 +1449,18 @@ NetLogo 5.3.1
     </enumeratedValueSet>
     <enumeratedValueSet variable="number-food">
       <value value="3"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="enemy-food" repetitions="1" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>count turtles</metric>
+    <metric>min(list 100 (sum([enemy-food]) of patches with [enemy-food &gt; 0] * 1000)) - (sum([food]) of patches with [enemy-food &gt; 0]) / max (list 1 (sum([enemy-food]) of patches with [enemy-food &gt; 0])) * 100</metric>
+    <enumeratedValueSet variable="amount_scouts">
+      <value value="20"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="amount_foragers">
+      <value value="80"/>
     </enumeratedValueSet>
   </experiment>
 </experiments>
